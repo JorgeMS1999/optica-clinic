@@ -1,0 +1,443 @@
+import { useState, useEffect, useRef } from 'react'
+import { Search, X, ShoppingCart, Plus, Minus, Trash2, CheckCircle, Printer } from 'lucide-react'
+import api from '../../services/api'
+import toast from 'react-hot-toast'
+import { useAuth } from '../../contexts/AuthContext'
+import { imprimirComprobanteVenta } from '../../utils/imprimirComprobanteVenta'
+
+const METODOS = [
+  { key: 'efectivo',      label: 'Efectivo' },
+  { key: 'tarjeta',       label: 'Tarjeta' },
+  { key: 'transferencia', label: 'Transferencia' },
+  { key: 'qr',            label: 'QR' },
+]
+
+function ItemCarrito({ item, onCantidad, onPrecio, onEliminar }) {
+  return (
+    <div className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-0">
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-gray-800 text-sm truncate">{item.nombre}</p>
+        <div className="flex items-center gap-2 mt-1.5">
+          <button onClick={() => onCantidad(item.producto_id, item.cantidad - 1)}
+            className="w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition">
+            <Minus size={12} />
+          </button>
+          <span className="w-8 text-center text-sm font-bold text-gray-700">{item.cantidad}</span>
+          <button onClick={() => onCantidad(item.producto_id, item.cantidad + 1)}
+            disabled={item.cantidad >= item.stock_actual}
+            className="w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-40 flex items-center justify-center transition">
+            <Plus size={12} />
+          </button>
+          <span className="text-xs text-gray-400 ml-1">/ {item.stock_actual} disp.</span>
+        </div>
+      </div>
+      <div className="flex flex-col items-end gap-1">
+        <button onClick={() => onEliminar(item.producto_id)}
+          className="text-gray-300 hover:text-red-500 transition">
+          <Trash2 size={14} />
+        </button>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-400">Bs.</span>
+          <input
+            type="number" min="0" step="0.01"
+            value={item.precio_unitario}
+            onChange={e => onPrecio(item.producto_id, e.target.value)}
+            className="w-20 text-right text-sm font-semibold text-gray-800 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          />
+        </div>
+        <span className="text-xs text-gray-500">
+          = Bs. {(item.cantidad * parseFloat(item.precio_unitario || 0)).toFixed(2)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+export default function Ventas() {
+  const { usuario } = useAuth()
+  const [busqueda, setBusqueda]     = useState('')
+  const [resultados, setResultados] = useState([])
+  const [buscando, setBuscando]     = useState(false)
+  const [carrito, setCarrito]       = useState([])
+  const [descuento, setDescuento]   = useState(0)
+  const [metodo, setMetodo]         = useState('efectivo')
+  const [referencia, setReferencia] = useState('')
+  const [clienteNombre, setClienteNombre] = useState('')
+  const [procesando, setProcesando] = useState(false)
+  const [ventaOk, setVentaOk]       = useState(null) // { venta, snapshot }
+  const [farmacia, setFarmacia]     = useState(null)
+  const searchRef = useRef(null)
+  const timerRef  = useRef(null)
+
+  useEffect(() => {
+    api.get('/farmacias').then(r => setFarmacia(r.data[0] || null)).catch(() => {})
+  }, [])
+
+  // Buscar productos con debounce
+  useEffect(() => {
+    if (!busqueda.trim()) { setResultados([]); return }
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(async () => {
+      setBuscando(true)
+      try {
+        const { data } = await api.get(`/farmacia/productos?q=${encodeURIComponent(busqueda)}`)
+        setResultados(data.filter(p => parseInt(p.stock_actual) > 0))
+      } catch { /* silencioso */ }
+      finally { setBuscando(false) }
+    }, 300)
+  }, [busqueda])
+
+  function agregarAlCarrito(p) {
+    setBusqueda('')
+    setResultados([])
+    setCarrito(prev => {
+      const existe = prev.find(i => i.producto_id === p.id)
+      if (existe) {
+        if (existe.cantidad >= parseInt(p.stock_actual)) {
+          toast.error('Sin stock suficiente')
+          return prev
+        }
+        return prev.map(i => i.producto_id === p.id
+          ? { ...i, cantidad: i.cantidad + 1 }
+          : i)
+      }
+      return [...prev, {
+        producto_id:    p.id,
+        nombre:         p.nombre,
+        precio_unitario: parseFloat(p.precio_venta).toFixed(2),
+        cantidad:        1,
+        stock_actual:    parseInt(p.stock_actual),
+      }]
+    })
+    searchRef.current?.focus()
+  }
+
+  function cambiarCantidad(id, nueva) {
+    if (nueva <= 0) return eliminarItem(id)
+    setCarrito(prev => prev.map(i =>
+      i.producto_id === id
+        ? { ...i, cantidad: Math.min(nueva, i.stock_actual) }
+        : i
+    ))
+  }
+
+  function cambiarPrecio(id, precio) {
+    setCarrito(prev => prev.map(i =>
+      i.producto_id === id ? { ...i, precio_unitario: precio } : i
+    ))
+  }
+
+  function eliminarItem(id) {
+    setCarrito(prev => prev.filter(i => i.producto_id !== id))
+  }
+
+  const subtotal       = carrito.reduce((s, i) => s + i.cantidad * parseFloat(i.precio_unitario || 0), 0)
+  const descuento_monto = subtotal * (parseFloat(descuento) / 100)
+  const total           = Math.max(0, subtotal - descuento_monto)
+
+  async function procesarVenta() {
+    if (!carrito.length) return toast.error('Carrito vacío')
+    if (!metodo)         return toast.error('Seleccione método de pago')
+    setProcesando(true)
+    try {
+      // Guardar snapshot antes de limpiar
+      const snapshot = {
+        items:           carrito.map(i => ({ ...i })),
+        subtotal,
+        descuento_pct:   parseFloat(descuento) || 0,
+        descuento_monto,
+        total,
+        metodo_pago:     metodo,
+        referencia:      referencia || '',
+        clienteNombre:   clienteNombre || '',
+      }
+      const { data } = await api.post('/farmacia/ventas', {
+        cliente_nombre:  clienteNombre || null,
+        items: carrito.map(i => ({
+          producto_id:     i.producto_id,
+          cantidad:        i.cantidad,
+          precio_unitario: parseFloat(i.precio_unitario),
+          descuento_item:  0,
+        })),
+        descuento_pct: parseFloat(descuento) || 0,
+        metodo_pago:   metodo,
+        referencia:    referencia || null,
+      })
+      setVentaOk({ venta: data, snapshot })
+      setCarrito([])
+      setDescuento(0)
+      setReferencia('')
+      setClienteNombre('')
+      setMetodo('efectivo')
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error al procesar venta')
+    } finally { setProcesando(false) }
+  }
+
+  if (ventaOk) {
+    const { venta, snapshot } = ventaOk
+
+    function handleImprimir() {
+      imprimirComprobanteVenta({
+        venta,
+        items:           snapshot.items,
+        subtotal:        snapshot.subtotal,
+        descuento_pct:   snapshot.descuento_pct,
+        descuento_monto: snapshot.descuento_monto,
+        total:           snapshot.total,
+        metodo_pago:     snapshot.metodo_pago,
+        referencia:      snapshot.referencia,
+        clienteNombre:   snapshot.clienteNombre,
+        vendedorNombre:  usuario?.nombre,
+        farmacia,
+      })
+    }
+
+    return (
+      <div className="max-w-md mx-auto mt-10 space-y-5">
+        {/* Éxito */}
+        <div className="text-center space-y-3">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle size={36} className="text-green-500" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">¡Venta registrada!</h2>
+            <p className="text-gray-500 text-sm mt-1">
+              Venta #{venta.id}
+              {snapshot.clienteNombre && ` · ${snapshot.clienteNombre}`}
+              {' · '}
+              <span className="font-semibold text-green-600">Bs. {snapshot.total.toFixed(2)}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Resumen compacto */}
+        <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+          {snapshot.items.map((i, idx) => (
+            <div key={idx} className="flex justify-between text-sm">
+              <span className="text-gray-600">{i.nombre} × {i.cantidad}</span>
+              <span className="font-medium">
+                Bs. {(i.cantidad * parseFloat(i.precio_unitario || 0)).toFixed(2)}
+              </span>
+            </div>
+          ))}
+          {snapshot.descuento_monto > 0 && (
+            <div className="flex justify-between text-sm text-red-500">
+              <span>Descuento ({snapshot.descuento_pct}%)</span>
+              <span>− Bs. {snapshot.descuento_monto.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2">
+            <span>Total</span>
+            <span className="text-green-600">Bs. {snapshot.total.toFixed(2)}</span>
+          </div>
+          <p className="text-xs text-gray-400 pt-1">
+            Método: {METODOS.find(m => m.key === snapshot.metodo_pago)?.label}
+            {snapshot.referencia ? ` · Ref: ${snapshot.referencia}` : ''}
+          </p>
+        </div>
+
+        {/* Acciones */}
+        <div className="flex gap-3">
+          <button
+            onClick={handleImprimir}
+            className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-semibold text-sm transition"
+          >
+            <Printer size={18} />
+            Imprimir comprobante
+          </button>
+          <button
+            onClick={() => setVentaOk(null)}
+            className="flex-1 border border-gray-300 hover:bg-gray-50 text-gray-700 py-3 rounded-xl font-semibold text-sm transition"
+          >
+            Nueva venta
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex gap-5 h-[calc(100vh-120px)]">
+
+      {/* Panel izquierdo — búsqueda */}
+      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">Nueva Venta</h2>
+          <p className="text-gray-500 text-sm mt-0.5">Busca y agrega productos</p>
+        </div>
+
+        {/* Buscador */}
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder="Buscar producto por nombre o código..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            autoFocus
+            className="w-full pl-9 pr-10 py-3 border border-gray-200 rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+          />
+          {busqueda && (
+            <button onClick={() => { setBusqueda(''); setResultados([]) }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Resultados */}
+        {(resultados.length > 0 || buscando) && (
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+            {buscando ? (
+              <div className="p-4 text-center text-gray-400 text-sm">Buscando...</div>
+            ) : (
+              <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
+                {resultados.map(p => (
+                  <button key={p.id} onClick={() => agregarAlCarrito(p)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-50 transition text-left group">
+                    <div>
+                      <p className="font-medium text-gray-800 text-sm group-hover:text-blue-700">{p.nombre}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {p.codigo && <span className="font-mono mr-2">{p.codigo}</span>}
+                        <span>{p.categoria_nombre || 'Sin categoría'}</span>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-blue-700 text-sm">Bs. {parseFloat(p.precio_venta).toFixed(2)}</p>
+                      <p className="text-xs text-gray-400">{p.stock_actual} en stock</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Estado vacío */}
+        {!busqueda && (
+          <div className="flex-1 flex items-center justify-center text-gray-300">
+            <div className="text-center">
+              <Search size={48} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Busca un producto para comenzar</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Panel derecho — carrito */}
+      <div className="w-80 flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden">
+        {/* Header carrito */}
+        <div className="px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <ShoppingCart size={18} className="text-blue-600" />
+            <h3 className="font-semibold text-gray-800">Carrito</h3>
+            {carrito.length > 0 && (
+              <span className="ml-auto bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                {carrito.reduce((s, i) => s + i.cantidad, 0)} uds.
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Items */}
+        <div className="flex-1 overflow-y-auto px-5">
+          {carrito.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-gray-300 text-sm text-center py-8">
+              El carrito está vacío
+            </div>
+          ) : (
+            carrito.map(item => (
+              <ItemCarrito
+                key={item.producto_id}
+                item={item}
+                onCantidad={cambiarCantidad}
+                onPrecio={cambiarPrecio}
+                onEliminar={eliminarItem}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Footer con totales y pago */}
+        <div className="border-t border-gray-100 px-5 py-4 space-y-3">
+          {/* Cliente */}
+          <input
+            type="text"
+            placeholder="Nombre del cliente (opcional)"
+            value={clienteNombre}
+            onChange={e => setClienteNombre(e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+
+          {/* Descuento */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 flex-1">Descuento %</span>
+            <input
+              type="number" min="0" max="100" step="0.5"
+              value={descuento}
+              onChange={e => setDescuento(e.target.value)}
+              className="w-20 border border-gray-200 rounded-xl px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+
+          {/* Totales */}
+          <div className="space-y-1.5 text-sm pt-1">
+            <div className="flex justify-between text-gray-500">
+              <span>Subtotal</span>
+              <span>Bs. {subtotal.toFixed(2)}</span>
+            </div>
+            {descuento_monto > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Descuento ({descuento}%)</span>
+                <span>- Bs. {descuento_monto.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-bold text-gray-800 text-base pt-1 border-t border-gray-100">
+              <span>Total</span>
+              <span>Bs. {total.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Método de pago */}
+          <div className="grid grid-cols-2 gap-1.5">
+            {METODOS.map(m => (
+              <button
+                key={m.key}
+                onClick={() => setMetodo(m.key)}
+                className={`py-2 rounded-xl text-xs font-medium transition ${
+                  metodo === m.key
+                    ? 'bg-blue-700 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Referencia */}
+          {(metodo === 'tarjeta' || metodo === 'transferencia' || metodo === 'qr') && (
+            <input
+              type="text"
+              placeholder="Nro. referencia / comprobante"
+              value={referencia}
+              onChange={e => setReferencia(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          )}
+
+          {/* Botón cobrar */}
+          <button
+            onClick={procesarVenta}
+            disabled={procesando || !carrito.length}
+            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-3 rounded-xl font-bold text-sm transition"
+          >
+            {procesando ? 'Procesando...' : `Cobrar Bs. ${total.toFixed(2)}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

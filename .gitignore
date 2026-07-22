@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+dist/
+dist-ssr/
+*.log
+
+# Respaldos de base de datos (no forman parte del código)
+database-export/
+database-export.rar

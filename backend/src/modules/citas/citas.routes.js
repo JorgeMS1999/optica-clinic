@@ -1,0 +1,159 @@
+const { Router } = require('express')
+const { authMiddleware, requireRole } = require('../../middleware/auth')
+const { tenantDB } = require('../../config/db')
+
+const router = Router()
+router.use(authMiddleware)
+
+function db(req) {
+  if (!req.user.clinica_db) throw new Error('Sin clínica asignada')
+  return tenantDB(req.user.clinica_db)
+}
+
+// Listar citas con filtros: fecha, doctor, estado
+router.get('/', async (req, res) => {
+  try {
+    const { fecha, doctor_id, estado, paciente_id } = req.query
+    const conditions = []
+    const params = []
+    let i = 1
+
+    if (fecha)       { conditions.push(`c.fecha = $${i++}`)       ; params.push(fecha) }
+    if (doctor_id)   { conditions.push(`c.doctor_id = $${i++}`)   ; params.push(doctor_id) }
+    if (estado)      { conditions.push(`c.estado = $${i++}`)       ; params.push(estado) }
+    if (paciente_id) { conditions.push(`c.paciente_id = $${i++}`) ; params.push(paciente_id) }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+
+    const r = await db(req).query(
+      `SELECT c.*,
+              p.nombre  AS paciente_nombre, p.carnet,
+              d.nombre  AS doctor_nombre
+       FROM citas c
+       JOIN pacientes p ON p.id = c.paciente_id
+       JOIN doctores  d ON d.id = c.doctor_id
+       ${where}
+       ORDER BY c.fecha, c.hora`,
+      params
+    )
+    res.json(r.rows)
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+// Citas de hoy resumidas (para dashboard)
+router.get('/hoy/resumen', async (req, res) => {
+  try {
+    const r = await db(req).query(
+      `SELECT
+        COUNT(*) FILTER (WHERE estado != 'cancelada' AND estado != 'no_asistio') AS total,
+        COUNT(*) FILTER (WHERE estado = 'en_espera')   AS en_espera,
+        COUNT(*) FILTER (WHERE estado = 'en_consulta') AS en_consulta,
+        COUNT(*) FILTER (WHERE estado = 'atendida')    AS atendidas,
+        COUNT(*) FILTER (WHERE estado = 'programada' OR estado = 'confirmada') AS programadas
+       FROM citas WHERE fecha = CURRENT_DATE`
+    )
+    res.json(r.rows[0])
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+// Obtener cita por ID
+router.get('/:id', async (req, res) => {
+  try {
+    const r = await db(req).query(
+      `SELECT c.*,
+              p.nombre AS paciente_nombre, p.carnet, p.telefono, p.registrado_completo,
+              d.nombre AS doctor_nombre
+       FROM citas c
+       JOIN pacientes p ON p.id = c.paciente_id
+       JOIN doctores  d ON d.id = c.doctor_id
+       WHERE c.id=$1`,
+      [req.params.id]
+    )
+    if (!r.rows[0]) return res.status(404).json({ error: 'Cita no encontrada' })
+    res.json(r.rows[0])
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+// Crear cita
+router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora'), async (req, res) => {
+  try {
+    const { paciente_id, doctor_id, fecha, hora, tipo, motivo, notas_coord } = req.body
+    if (!paciente_id || !doctor_id || !fecha || !hora || !tipo) {
+      return res.status(400).json({ error: 'Datos incompletos' })
+    }
+
+    // Verificar que no haya choque de horario para el doctor
+    const choque = await db(req).query(
+      `SELECT id FROM citas
+       WHERE doctor_id=$1 AND fecha=$2 AND hora=$3
+         AND estado NOT IN ('cancelada','no_asistio')`,
+      [doctor_id, fecha, hora]
+    )
+    if (choque.rows[0]) {
+      return res.status(400).json({ error: 'El doctor ya tiene una cita a esa hora' })
+    }
+
+    const r = await db(req).query(
+      `INSERT INTO citas (paciente_id, doctor_id, fecha, hora, tipo, motivo, notas_coord, creado_por)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [paciente_id, doctor_id, fecha, hora, tipo,
+       motivo || null, notas_coord || null, req.user.id]
+    )
+    res.status(201).json(r.rows[0])
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+// Cambiar estado de cita
+router.patch('/:id/estado', requireRole('superadmin', 'admin_clinica', 'coordinadora', 'doctor'), async (req, res) => {
+  try {
+    const { estado } = req.body
+    const validos = ['programada','confirmada','en_espera','en_consulta','atendida','cancelada','no_asistio']
+    if (!validos.includes(estado)) {
+      return res.status(400).json({ error: 'Estado inválido' })
+    }
+    const r = await db(req).query(
+      `UPDATE citas SET estado=$1 WHERE id=$2 RETURNING *`,
+      [estado, req.params.id]
+    )
+    res.json(r.rows[0])
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+// Actualizar cita
+router.put('/:id', requireRole('superadmin', 'admin_clinica', 'coordinadora'), async (req, res) => {
+  try {
+    const { doctor_id, fecha, hora, tipo, motivo, notas_coord } = req.body
+
+    // Verificar que no haya choque de horario para el doctor (excluyendo esta misma cita)
+    const choque = await db(req).query(
+      `SELECT id FROM citas
+       WHERE doctor_id=$1 AND fecha=$2 AND hora=$3
+         AND estado NOT IN ('cancelada','no_asistio') AND id != $4`,
+      [doctor_id, fecha, hora, req.params.id]
+    )
+    if (choque.rows[0]) {
+      return res.status(400).json({ error: 'El doctor ya tiene una cita a esa hora' })
+    }
+
+    const r = await db(req).query(
+      `UPDATE citas SET doctor_id=$1, fecha=$2, hora=$3, tipo=$4, motivo=$5, notas_coord=$6
+       WHERE id=$7 RETURNING *`,
+      [doctor_id, fecha, hora, tipo, motivo || null, notas_coord || null, req.params.id]
+    )
+    res.json(r.rows[0])
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+module.exports = router
