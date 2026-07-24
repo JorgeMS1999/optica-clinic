@@ -13,6 +13,7 @@ const METODOS = [
 ]
 
 function ItemCarrito({ item, onCantidad, onPrecio, onEliminar }) {
+  const precioInvalido = !(parseFloat(item.precio_unitario) > 0)
   return (
     <div className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-0">
       <div className="flex-1 min-w-0">
@@ -42,9 +43,11 @@ function ItemCarrito({ item, onCantidad, onPrecio, onEliminar }) {
             type="number" min="0" step="0.01"
             value={item.precio_unitario}
             onChange={e => onPrecio(item.producto_id, e.target.value)}
-            className="w-20 text-right text-sm font-semibold text-gray-800 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className={`w-20 text-right text-sm font-semibold rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 border
+              ${precioInvalido ? 'border-red-300 bg-red-50 text-red-700' : 'border-gray-200 text-gray-800'}`}
           />
         </div>
+        {precioInvalido && <span className="text-[10px] text-red-500">Ponle un precio</span>}
         <span className="text-xs text-gray-500">
           = Bs. {(item.cantidad * parseFloat(item.precio_unitario || 0)).toFixed(2)}
         </span>
@@ -135,9 +138,12 @@ export default function Ventas() {
   const descuento_monto = subtotal * (parseFloat(descuento) / 100)
   const total           = Math.max(0, subtotal - descuento_monto)
 
+  const hayPrecioInvalido = carrito.some(i => !(parseFloat(i.precio_unitario) > 0))
+
   async function procesarVenta() {
     if (!carrito.length) return toast.error('Carrito vacío')
     if (!metodo)         return toast.error('Seleccione método de pago')
+    if (hayPrecioInvalido) return toast.error('Hay un producto sin precio en el carrito — complétalo antes de cobrar')
     setProcesando(true)
     try {
       // Guardar snapshot antes de limpiar
@@ -305,7 +311,11 @@ export default function Ventas() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-blue-700 text-sm">Bs. {parseFloat(p.precio_venta).toFixed(2)}</p>
+                      {parseFloat(p.precio_venta) === 0 ? (
+                        <p className="font-bold text-amber-600 text-sm">Sin precio</p>
+                      ) : (
+                        <p className="font-bold text-blue-700 text-sm">Bs. {parseFloat(p.precio_venta).toFixed(2)}</p>
+                      )}
                       <p className="text-xs text-gray-400">{p.stock_actual} en stock</p>
                     </div>
                   </button>
@@ -431,10 +441,10 @@ export default function Ventas() {
           {/* Botón cobrar */}
           <button
             onClick={procesarVenta}
-            disabled={procesando || !carrito.length}
+            disabled={procesando || !carrito.length || hayPrecioInvalido}
             className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-3 rounded-xl font-bold text-sm transition"
           >
-            {procesando ? 'Procesando...' : `Cobrar Bs. ${total.toFixed(2)}`}
+            {procesando ? 'Procesando...' : hayPrecioInvalido ? 'Falta poner un precio' : `Cobrar Bs. ${total.toFixed(2)}`}
           </button>
         </div>
       </div>

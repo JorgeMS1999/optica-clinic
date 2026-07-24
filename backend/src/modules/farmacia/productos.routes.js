@@ -82,7 +82,9 @@ router.post('/', requireRole('superadmin', 'admin_farmacia'), async (req, res) =
       precio_compra = 0, precio_venta, stock_minimo = 5, requiere_lote = true
     } = req.body
     if (!nombre?.trim()) return res.status(400).json({ error: 'Nombre requerido' })
-    if (!precio_venta) return res.status(400).json({ error: 'Precio de venta requerido' })
+    if (precio_venta === undefined || precio_venta === null || precio_venta === '' || precio_venta < 0) {
+      return res.status(400).json({ error: 'Precio de venta requerido' })
+    }
 
     const r = await db(req).query(
       `INSERT INTO productos
@@ -109,19 +111,24 @@ router.put('/:id', requireRole('superadmin', 'admin_farmacia'), async (req, res)
       unidad_medida, unidades_por_lote, precio_compra, precio_venta,
       stock_minimo, requiere_lote, activo
     } = req.body
+    if (!nombre?.trim()) return res.status(400).json({ error: 'Nombre requerido' })
+    if (precio_venta === undefined || precio_venta === null || precio_venta === '' || precio_venta < 0) {
+      return res.status(400).json({ error: 'Precio de venta requerido' })
+    }
     const r = await db(req).query(
       `UPDATE productos SET
          codigo=$1, nombre=$2, descripcion=$3, categoria_id=$4, proveedor_id=$5,
          unidad_medida=$6, unidades_por_lote=$7, precio_compra=$8, precio_venta=$9,
          stock_minimo=$10, requiere_lote=$11, activo=$12
        WHERE id=$13 RETURNING *`,
-      [codigo || null, nombre, descripcion || null, categoria_id || null,
+      [codigo || null, nombre.trim(), descripcion || null, categoria_id || null,
        proveedor_id || null, unidad_medida, unidades_por_lote,
        precio_compra, precio_venta, stock_minimo, requiere_lote, activo ?? true,
        req.params.id]
     )
     res.json(r.rows[0])
   } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'El código ya existe' })
     res.status(400).json({ error: err.message })
   }
 })

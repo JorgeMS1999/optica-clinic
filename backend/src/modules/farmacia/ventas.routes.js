@@ -130,7 +130,7 @@ router.get('/:id', async (req, res) => {
 })
 
 // Crear venta (descuenta stock FIFO)
-router.post('/', async (req, res) => {
+router.post('/', requireRole('superadmin', 'admin_farmacia', 'cajero'), async (req, res) => {
   const client = await db(req).getClient()
   try {
     await client.query('BEGIN')
@@ -143,7 +143,14 @@ router.post('/', async (req, res) => {
     } = req.body
 
     if (!items?.length || !metodo_pago) {
+      await client.query('ROLLBACK')
       return res.status(400).json({ error: 'items y metodo_pago requeridos' })
+    }
+    for (const i of items) {
+      if (!Number.isFinite(i.precio_unitario) || i.precio_unitario < 0 || !Number.isInteger(i.cantidad) || i.cantidad <= 0) {
+        await client.query('ROLLBACK')
+        return res.status(400).json({ error: 'Cantidad o precio inválido en uno de los productos' })
+      }
     }
 
     // Calcular totales
@@ -169,15 +176,19 @@ router.post('/', async (req, res) => {
       let restante = parseInt(item.cantidad)
 
       // Obtener lotes disponibles más antiguos primero (FIFO por fecha_vencimiento/creado_en)
+      // FOR UPDATE bloquea estas filas hasta el COMMIT/ROLLBACK, evitando que dos ventas
+      // simultáneas del mismo producto lean el mismo stock antes de que ninguna lo descuente
       const lotesRes = await client.query(
         `SELECT id, cantidad_unidades FROM lotes
          WHERE producto_id=$1 AND cantidad_unidades > 0
-         ORDER BY fecha_vencimiento ASC NULLS LAST, creado_en ASC`,
+         ORDER BY fecha_vencimiento ASC NULLS LAST, creado_en ASC
+         FOR UPDATE`,
         [item.producto_id]
       )
 
       if (lotesRes.rows.reduce((s, l) => s + l.cantidad_unidades, 0) < restante) {
-        throw new Error(`Stock insuficiente para el producto ID ${item.producto_id}`)
+        const prodRes = await client.query(`SELECT nombre FROM productos WHERE id=$1`, [item.producto_id])
+        throw new Error(`Stock insuficiente para "${prodRes.rows[0]?.nombre || item.producto_id}"`)
       }
 
       let lote_id_principal = null

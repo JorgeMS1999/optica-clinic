@@ -121,7 +121,7 @@ CREATE TABLE ventas (
     descuento_pct   NUMERIC(5,2) DEFAULT 0,
     descuento_monto NUMERIC(10,2) DEFAULT 0,
     total           NUMERIC(10,2) NOT NULL,
-    metodo_pago     VARCHAR(30) NOT NULL CHECK (metodo_pago IN ('efectivo','tarjeta','transferencia')),
+    metodo_pago     VARCHAR(30) NOT NULL CHECK (metodo_pago IN ('efectivo','tarjeta','transferencia','qr')),
     referencia      VARCHAR(100),
     estado          VARCHAR(20) DEFAULT 'completada' CHECK (estado IN ('completada','anulada')),
     notas           TEXT,

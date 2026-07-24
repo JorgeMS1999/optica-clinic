@@ -76,6 +76,9 @@ export default function Usuarios() {
   async function handleCrear(e) {
     e.preventDefault()
     if (!form.rol) return toast.error('Selecciona un rol')
+    if (form.rol === 'cajero' && usuario?.rol === 'superadmin' && !form.clinica_id && !form.farmacia_id) {
+      return toast.error('Elige a qué clínica o farmacia pertenece el cajero')
+    }
     setGuardando(true)
     try {
       await api.post('/usuarios', form)
@@ -91,8 +94,9 @@ export default function Usuarios() {
   }
 
   // Determina si el rol seleccionado requiere clínica o farmacia (solo superadmin asigna)
+  // "cajero" puede ir en cualquiera de las dos — se muestra un selector para elegir cuál
   const rolNecesitaClinica  = ['admin_clinica','coordinadora','doctor','cajero'].includes(form.rol)
-  const rolNecesitaFarmacia = ['admin_farmacia'].includes(form.rol)
+  const rolNecesitaFarmacia = ['admin_farmacia','cajero'].includes(form.rol)
 
   return (
     <div className="space-y-5">
@@ -225,11 +229,18 @@ export default function Usuarios() {
           </div>
 
           {/* Solo superadmin asigna establecimiento */}
+          {form.rol === 'cajero' && usuario?.rol === 'superadmin' && (
+            <p className="bg-blue-50 text-blue-700 text-xs rounded-xl px-4 py-2.5">
+              El cajero puede ser de una clínica o de una farmacia — completa solo uno de los dos campos.
+            </p>
+          )}
           {usuario?.rol === 'superadmin' && rolNecesitaClinica && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Clínica <span className="text-red-500">*</span></label>
-              <select required value={form.clinica_id}
-                onChange={e => setForm(f => ({ ...f, clinica_id: e.target.value }))}
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Clínica {form.rol !== 'cajero' && <span className="text-red-500">*</span>}
+              </label>
+              <select required={form.rol !== 'cajero'} value={form.clinica_id}
+                onChange={e => setForm(f => ({ ...f, clinica_id: e.target.value, farmacia_id: e.target.value ? '' : f.farmacia_id }))}
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">— Seleccionar clínica —</option>
                 {clinicas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
@@ -239,9 +250,11 @@ export default function Usuarios() {
 
           {usuario?.rol === 'superadmin' && rolNecesitaFarmacia && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Farmacia <span className="text-red-500">*</span></label>
-              <select required value={form.farmacia_id}
-                onChange={e => setForm(f => ({ ...f, farmacia_id: e.target.value }))}
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Farmacia {form.rol !== 'cajero' && <span className="text-red-500">*</span>}
+              </label>
+              <select required={form.rol !== 'cajero'} value={form.farmacia_id}
+                onChange={e => setForm(f => ({ ...f, farmacia_id: e.target.value, clinica_id: e.target.value ? '' : f.clinica_id }))}
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">— Seleccionar farmacia —</option>
                 {farmacias.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}

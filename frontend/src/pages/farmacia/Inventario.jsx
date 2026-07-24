@@ -129,6 +129,7 @@ function FilaProducto({ producto, onAjuste }) {
 
 export default function Inventario() {
   const [productos, setProductos]   = useState([])
+  const [porVencer, setPorVencer]   = useState([])
   const [busqueda, setBusqueda]     = useState('')
   const [filtro, setFiltro]         = useState('todos')  // todos | bajo_stock | sin_stock | por_vencer
   const [loading, setLoading]       = useState(false)
@@ -139,14 +140,16 @@ export default function Inventario() {
   const cargar = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (busqueda) params.set('q', busqueda)
-      if (filtro === 'bajo_stock' || filtro === 'sin_stock') params.set('bajo_stock', '1')
-      const { data } = await api.get(`/farmacia/productos?${params}`)
-      let lista = data
-      if (filtro === 'sin_stock')   lista = data.filter(p => parseInt(p.stock_actual) <= 0)
-      if (filtro === 'por_vencer')  lista = data  // filtrado visual abajo si queremos
-      setProductos(lista)
+      if (filtro === 'por_vencer') {
+        const { data } = await api.get('/farmacia/lotes/por-vencer?dias=90')
+        setPorVencer(busqueda ? data.filter(l => l.producto_nombre.toLowerCase().includes(busqueda.toLowerCase())) : data)
+      } else {
+        const params = new URLSearchParams()
+        if (busqueda) params.set('q', busqueda)
+        if (filtro === 'bajo_stock' || filtro === 'sin_stock') params.set('bajo_stock', '1')
+        const { data } = await api.get(`/farmacia/productos?${params}`)
+        setProductos(filtro === 'sin_stock' ? data.filter(p => parseInt(p.stock_actual) <= 0) : data)
+      }
     } catch { toast.error('Error al cargar inventario') }
     finally { setLoading(false) }
   }, [busqueda, filtro])
@@ -155,6 +158,12 @@ export default function Inventario() {
     const t = setTimeout(cargar, 300)
     return () => clearTimeout(t)
   }, [cargar])
+
+  // Contador de "por vencer" siempre visible en el filtro, independiente de cuál esté seleccionado
+  const [porVencerCount, setPorVencerCount] = useState(0)
+  useEffect(() => {
+    api.get('/farmacia/lotes/por-vencer?dias=90').then(r => setPorVencerCount(r.data.length)).catch(() => {})
+  }, [])
 
   async function handleAjuste(e) {
     e.preventDefault()
@@ -184,6 +193,7 @@ export default function Inventario() {
     { key: 'todos',      label: 'Todos' },
     { key: 'bajo_stock', label: `Stock bajo (${bajoStock})` },
     { key: 'sin_stock',  label: `Sin stock (${sinStock})` },
+    { key: 'por_vencer', label: `Por vencer (${porVencerCount})` },
   ]
 
   return (
@@ -243,6 +253,34 @@ export default function Inventario() {
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-gray-400">Cargando...</div>
+        ) : filtro === 'por_vencer' ? (
+          porVencer.length === 0 ? (
+            <div className="p-10 text-center text-gray-400">
+              <Calendar size={40} className="mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Nada por vencer en los próximos 90 días</p>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                <tr>
+                  <th className="px-5 py-3 text-left">Producto</th>
+                  <th className="px-5 py-3 text-left">Lote</th>
+                  <th className="px-5 py-3 text-left">Vencimiento</th>
+                  <th className="px-5 py-3 text-right">Unidades</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {porVencer.map(l => (
+                  <tr key={l.id} className="hover:bg-gray-50">
+                    <td className="px-5 py-3 font-medium text-gray-800">{l.producto_nombre}</td>
+                    <td className="px-5 py-3 text-gray-500 font-mono text-xs">{l.numero_lote || '—'}</td>
+                    <td className="px-5 py-3"><VencimientoBadge fecha={l.fecha_vencimiento} /></td>
+                    <td className="px-5 py-3 text-right font-semibold text-gray-700">{l.cantidad_unidades}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
         ) : productos.length === 0 ? (
           <div className="p-10 text-center text-gray-400">
             <Package size={40} className="mx-auto mb-3 opacity-30" />

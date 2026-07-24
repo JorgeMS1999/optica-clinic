@@ -314,7 +314,7 @@ CREATE TABLE public.ventas (
     notas text,
     creado_en timestamp with time zone DEFAULT now(),
     CONSTRAINT ventas_estado_check CHECK (((estado)::text = ANY ((ARRAY['completada'::character varying, 'anulada'::character varying])::text[]))),
-    CONSTRAINT ventas_metodo_pago_check CHECK (((metodo_pago)::text = ANY ((ARRAY['efectivo'::character varying, 'tarjeta'::character varying, 'transferencia'::character varying])::text[])))
+    CONSTRAINT ventas_metodo_pago_check CHECK (((metodo_pago)::text = ANY ((ARRAY['efectivo'::character varying, 'tarjeta'::character varying, 'transferencia'::character varying, 'qr'::character varying])::text[])))
 );
 
 
@@ -433,6 +433,60 @@ COPY public.detalle_venta (id, venta_id, producto_id, lote_id, cantidad, precio_
 --
 
 COPY public.lotes (id, producto_id, numero_lote, fecha_vencimiento, fecha_recepcion, proveedor_id, cantidad_presentaciones, unidades_por_presentacion, cantidad_unidades, cantidad_inicial, costo_unitario, precio_venta_lote, notas, creado_en) FROM stdin;
+25	19	\N	2027-06-30	2026-07-23	\N	8	1	8	8	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+26	20	\N	2027-07-31	2026-07-23	\N	8	1	8	8	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+27	21	\N	2027-08-31	2026-07-23	\N	7	1	7	7	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+28	22	\N	2027-10-31	2026-07-23	\N	6	1	6	6	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+29	23	\N	2028-01-31	2026-07-23	\N	14	1	14	14	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+30	24	\N	2027-06-30	2026-07-23	\N	6	1	6	6	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+31	25	\N	2027-03-31	2026-07-23	\N	3	1	3	3	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+32	26	\N	2028-07-31	2026-07-23	\N	3	1	3	3	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+33	27	\N	2027-06-30	2026-07-23	\N	4	1	4	4	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+34	28	\N	2027-03-31	2026-07-23	\N	2	1	2	2	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+35	29	\N	2027-07-31	2026-07-23	\N	2	1	2	2	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+36	30	\N	2028-01-31	2026-07-23	\N	2	1	2	2	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+37	31	\N	2027-09-30	2026-07-23	\N	2	1	2	2	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+38	32	\N	2026-11-30	2026-07-23	\N	2	1	2	2	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+39	33	\N	2026-08-31	2026-07-23	\N	6	1	6	6	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+40	34	\N	2026-07-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+41	35	\N	2026-08-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+42	36	\N	2026-08-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+43	37	\N	\N	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+44	38	\N	2027-01-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+45	39	\N	2027-12-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+46	40	\N	2026-11-30	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+47	41	\N	2027-01-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+48	42	\N	\N	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+49	43	\N	2028-01-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+50	44	\N	2028-01-31	2026-07-23	\N	4	1	4	4	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+51	45	\N	\N	2026-07-23	\N	3	1	3	3	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+52	46	\N	2026-07-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+53	47	\N	2026-08-31	2026-07-23	\N	3	1	3	3	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+54	48	\N	2027-06-30	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+55	49	\N	2027-07-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+56	50	\N	2027-01-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+57	51	\N	\N	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+58	52	\N	2026-10-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+59	53	\N	2026-07-31	2026-07-23	\N	5	1	5	5	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+60	54	\N	2027-01-31	2026-07-23	\N	1	1	1	1	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+61	55	\N	2027-03-31	2026-07-23	\N	7	1	7	7	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+62	56	\N	2027-10-31	2026-07-23	\N	4	1	4	4	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+63	57	\N	2028-03-31	2026-07-23	\N	5	1	5	5	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+64	58	\N	2027-03-31	2026-07-23	\N	4	1	4	4	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+65	59	\N	2027-08-31	2026-07-23	\N	80	1	80	80	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+66	60	\N	2027-08-31	2026-07-23	\N	52	1	52	52	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+67	61	\N	2028-01-31	2026-07-23	\N	30	1	30	30	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+68	62	\N	2026-08-31	2026-07-23	\N	50	1	50	50	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+69	63	\N	2027-05-31	2026-07-23	\N	60	1	60	60	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+70	64	\N	2028-05-31	2026-07-23	\N	34	1	34	34	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+71	65	\N	2028-05-31	2026-07-23	\N	34	1	34	34	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+72	66	\N	2028-08-31	2026-07-23	\N	53	1	53	53	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+73	67	\N	2027-06-30	2026-07-23	\N	253	1	253	253	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+74	68	\N	\N	2026-07-23	\N	20	1	20	20	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+75	69	\N	2027-08-31	2026-07-23	\N	7	1	7	7	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+76	70	\N	2027-06-30	2026-07-23	\N	16	1	16	16	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+77	71	\N	2028-01-31	2026-07-23	\N	2	1	2	2	0.00	\N	\N	2026-07-23 22:01:56.894362-04
+78	72	\N	2027-08-31	2026-07-23	\N	14	1	14	14	0.00	\N	\N	2026-07-23 22:01:56.894362-04
 \.
 
 
@@ -441,6 +495,7 @@ COPY public.lotes (id, producto_id, numero_lote, fecha_vencimiento, fecha_recepc
 --
 
 COPY public.movimientos_inventario (id, producto_id, lote_id, tipo, cantidad, cantidad_antes, cantidad_despues, referencia, motivo, usuario_id, creado_en) FROM stdin;
+1	19	25	venta	-1	8	7	VENTA-342	Venta	6	2026-07-23 22:34:06.542074-04
 \.
 
 
@@ -449,6 +504,60 @@ COPY public.movimientos_inventario (id, producto_id, lote_id, tipo, cantidad, ca
 --
 
 COPY public.productos (id, codigo, nombre, descripcion, categoria_id, proveedor_id, unidad_medida, unidades_por_lote, precio_compra, precio_venta, stock_minimo, requiere_lote, activo, creado_en) FROM stdin;
+19	\N	Elar B	\N	1	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+20	\N	Lagricel	\N	1	\N	unidad	1	0.00	190.00	5	t	t	2026-07-23 22:01:56.894362-04
+21	\N	Xegrex	\N	1	\N	unidad	1	0.00	377.00	5	t	t	2026-07-23 22:01:56.894362-04
+22	\N	Dropstar LC	\N	1	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+23	\N	Vidizona N-Forte	\N	1	\N	unidad	1	0.00	238.00	5	t	t	2026-07-23 22:01:56.894362-04
+24	\N	Vidizona N	\N	1	\N	unidad	1	0.00	175.00	5	t	t	2026-07-23 22:01:56.894362-04
+25	\N	Vidizolin	\N	1	\N	unidad	1	0.00	190.00	5	t	t	2026-07-23 22:01:56.894362-04
+26	\N	Ciprodex	\N	3	\N	unidad	1	0.00	215.00	5	t	t	2026-07-23 22:01:56.894362-04
+27	\N	Flumetol	\N	1	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+28	\N	Traler LC	\N	1	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+29	\N	Glaucotensil	\N	1	\N	unidad	1	0.00	250.00	5	t	t	2026-07-23 22:01:56.894362-04
+30	\N	Predso	\N	4	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+31	\N	Vidistar	\N	1	\N	unidad	1	0.00	170.00	5	t	t	2026-07-23 22:01:56.894362-04
+32	\N	Ciproval	\N	3	\N	unidad	1	0.00	220.00	5	t	t	2026-07-23 22:01:56.894362-04
+33	\N	Zebesten	\N	1	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+34	\N	Sophiphren	\N	1	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+35	\N	Oftalmol Aler	\N	5	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+36	\N	Syrast	\N	1	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+37	\N	Kryptantek	Nombre no confirmado — revisar caligrafía original	1	\N	unidad	1	0.00	400.00	5	t	t	2026-07-23 22:01:56.894362-04
+38	\N	GAAP	\N	1	\N	unidad	1	0.00	250.00	5	t	t	2026-07-23 22:01:56.894362-04
+39	\N	Gatidex	\N	3	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+40	\N	Oftafilm	\N	2	\N	unidad	1	0.00	185.00	5	t	t	2026-07-23 22:01:56.894362-04
+41	\N	Oftol Plus	\N	1	\N	unidad	1	0.00	230.00	5	t	t	2026-07-23 22:01:56.894362-04
+42	\N	Poenbiotic Ungena	Precio de venta por confirmar	3	\N	unidad	1	0.00	0.00	5	t	t	2026-07-23 22:01:56.894362-04
+43	\N	Xanic	Precio de venta por confirmar	1	\N	unidad	1	0.00	0.00	5	t	t	2026-07-23 22:01:56.894362-04
+44	\N	Unixima Cápsulas	\N	3	\N	unidad	1	0.00	230.00	5	t	t	2026-07-23 22:01:56.894362-04
+45	\N	Sophixin Ungena	\N	3	\N	unidad	1	0.00	230.00	5	t	t	2026-07-23 22:01:56.894362-04
+46	\N	Sophixin Dx Ofteno	Revisar si es el mismo producto que "Sophixin Ungena" o una presentación distinta	3	\N	unidad	1	0.00	230.00	5	t	t	2026-07-23 22:01:56.894362-04
+47	\N	Trajidex Ungena	\N	3	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+48	\N	Natamicina	\N	3	\N	unidad	1	0.00	200.00	5	t	t	2026-07-23 22:01:56.894362-04
+49	\N	Carpina	\N	1	\N	unidad	1	0.00	200.00	5	t	t	2026-07-23 22:01:56.894362-04
+50	\N	Atropina	Precio de venta por confirmar	1	\N	unidad	1	0.00	0.00	5	t	t	2026-07-23 22:01:56.894362-04
+51	\N	Tearsoft	Precio de venta por confirmar	2	\N	unidad	1	0.00	0.00	5	t	t	2026-07-23 22:01:56.894362-04
+52	\N	Alleance	\N	1	\N	unidad	1	0.00	190.00	5	t	t	2026-07-23 22:01:56.894362-04
+53	\N	Moxof-D	\N	3	\N	unidad	1	0.00	230.00	5	t	t	2026-07-23 22:01:56.894362-04
+54	\N	Lotemicin	\N	4	\N	unidad	1	0.00	188.00	5	t	t	2026-07-23 22:01:56.894362-04
+55	\N	Cristal Tears	\N	2	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+56	\N	Humylub	\N	2	\N	unidad	1	0.00	150.00	5	t	t	2026-07-23 22:01:56.894362-04
+57	\N	Dacrisol	\N	2	\N	unidad	1	0.00	75.00	5	t	t	2026-07-23 22:01:56.894362-04
+58	\N	Nanodrop	\N	2	\N	unidad	1	0.00	260.00	5	t	t	2026-07-23 22:01:56.894362-04
+59	\N	Diaris	\N	10	\N	unidad	1	0.00	5.00	5	t	t	2026-07-23 22:01:56.894362-04
+60	\N	Visocap	\N	10	\N	unidad	1	0.00	5.00	5	t	t	2026-07-23 22:01:56.894362-04
+61	\N	Vitof	\N	10	\N	unidad	1	0.00	8.00	5	t	t	2026-07-23 22:01:56.894362-04
+62	\N	Losartan	\N	10	\N	unidad	1	0.00	3.50	5	t	t	2026-07-23 22:01:56.894362-04
+63	\N	Farbic	Precio de venta por confirmar	10	\N	unidad	1	0.00	0.00	5	t	t	2026-07-23 22:01:56.894362-04
+64	\N	Ketorol	\N	10	\N	unidad	1	0.00	3.00	5	t	t	2026-07-23 22:01:56.894362-04
+65	\N	Amoxicilina	\N	10	\N	unidad	1	0.00	3.00	5	t	t	2026-07-23 22:01:56.894362-04
+66	\N	Levofloxacino	\N	10	\N	unidad	1	0.00	10.00	5	t	t	2026-07-23 22:01:56.894362-04
+67	\N	Ciprofloxacino	\N	10	\N	unidad	1	0.00	4.00	5	t	t	2026-07-23 22:01:56.894362-04
+68	\N	Zoplicona	Precio de venta por confirmar	10	\N	unidad	1	0.00	0.00	5	t	t	2026-07-23 22:01:56.894362-04
+69	\N	Azitromicina	Precio de venta por confirmar	10	\N	unidad	1	0.00	0.00	5	t	t	2026-07-23 22:01:56.894362-04
+70	\N	Acetazolamida	\N	10	\N	unidad	1	0.00	5.00	5	t	t	2026-07-23 22:01:56.894362-04
+71	\N	Cronobecor	\N	10	\N	ampolla	1	0.00	75.00	5	t	t	2026-07-23 22:01:56.894362-04
+72	\N	Novadol	\N	10	\N	unidad	1	0.00	3.50	5	t	t	2026-07-23 22:01:56.894362-04
 \.
 
 
@@ -457,6 +566,7 @@ COPY public.productos (id, codigo, nombre, descripcion, categoria_id, proveedor_
 --
 
 COPY public.proveedores (id, nombre, contacto, telefono, email, direccion, activo, creado_en) FROM stdin;
+4	Dr. Rubén Burgos	Trae mercadería directamente, sin datos de contacto formales aún	\N	\N	\N	t	2026-07-23 22:01:56.887233-04
 \.
 
 
@@ -486,42 +596,42 @@ SELECT pg_catalog.setval('public.clientes_farmacia_id_seq', 1, false);
 -- Name: detalle_venta_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.detalle_venta_id_seq', 846, true);
+SELECT pg_catalog.setval('public.detalle_venta_id_seq', 848, true);
 
 
 --
 -- Name: lotes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.lotes_id_seq', 24, true);
+SELECT pg_catalog.setval('public.lotes_id_seq', 78, true);
 
 
 --
 -- Name: movimientos_inventario_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.movimientos_inventario_id_seq', 1, false);
+SELECT pg_catalog.setval('public.movimientos_inventario_id_seq', 2, true);
 
 
 --
 -- Name: productos_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.productos_id_seq', 18, true);
+SELECT pg_catalog.setval('public.productos_id_seq', 72, true);
 
 
 --
 -- Name: proveedores_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.proveedores_id_seq', 3, true);
+SELECT pg_catalog.setval('public.proveedores_id_seq', 4, true);
 
 
 --
 -- Name: ventas_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.ventas_id_seq', 341, true);
+SELECT pg_catalog.setval('public.ventas_id_seq', 343, true);
 
 
 --

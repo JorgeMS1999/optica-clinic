@@ -260,9 +260,9 @@ COPY public.clinicas (id, nombre, direccion, telefono, email, db_name, activa, c
 --
 
 COPY public.farmacias (id, nombre, direccion, telefono, email, db_name, activa, creada_en) FROM stdin;
-1	Farmacia 1	\N	\N	\N	optica_farmacia_1	t	2026-05-09 08:35:36.068125-04
 2	Farmacia 2	\N	\N	\N	optica_farmacia_2	t	2026-05-09 08:35:36.070443-04
 3	Farmacia 3	\N	\N	\N	optica_farmacia_3	t	2026-05-09 08:35:36.071138-04
+1	Farmacia Luz de tu Vision	\N	\N	\N	optica_farmacia_1	t	2026-05-09 08:35:36.068125-04
 \.
 
 
@@ -294,7 +294,6 @@ COPY public.sesiones (id, usuario_id, refresh_token, expira_en, creada_en) FROM 
 
 COPY public.usuarios (id, nombre, email, password_hash, rol_id, clinica_id, farmacia_id, activo, creado_por, creado_en) FROM stdin;
 1	Super Administrador	superadmin@optica.com	$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi	1	\N	\N	t	\N	2026-05-09 08:35:32.360817-04
-6	Ana Admin Farmacia	admin@farmacia1.com	$2a$10$QK3aayLOpRh9LNxz3dkDwOWco7MOnpFe9QA8cC3MzUFR2TIHxmErC	6	\N	1	t	1	2026-05-09 14:58:14.094765-04
 2	María Torres	coordinadora@clinica1.com	$2a$10$IVgjeH4.Un80ZvR3ouUOXOPdV9ekgEgv9ZzffMzuskE/5FK1QCDFa	3	1	\N	t	1	2026-05-09 09:01:51.624996-04
 3	Admin Clínica 1	admin@clinica1.com	$2a$10$N6xHqi/dtEkN6iPNbY3hC.NX5PP0LKS4EwCH81C.VAU7h6S.KjI12	2	1	\N	t	1	2026-05-09 09:01:51.716987-04
 4	Carlos Mendoza	cajero@clinica1.com	$2a$10$5dmbFXM.eL4VxMdJ8RLu3.mm3e0G9eOgM0Auadp7THZhTnyfoXpzS	5	1	\N	t	2	2026-05-09 09:02:04.63797-04
@@ -302,6 +301,7 @@ COPY public.usuarios (id, nombre, email, password_hash, rol_id, clinica_id, farm
 10	Dr. Fran Aroja	aroja@clinica1.com	$2a$10$6lkYshlGVHma791FeMbgX.piVgesSMU8duJ48zvNAButkZp4Uplxa	4	1	\N	t	2	2026-07-20 22:01:43.320868-04
 11	Dr. Augusto Chungara	chungara@clinica1.com	$2a$10$kDDOQEBxaQ/A3sVkGKZ4deheD/U6qkPE5a8s/RWXTnB3mhMIpxcFG	4	1	\N	t	2	2026-07-20 22:01:43.462606-04
 12	Dr. Núñez	nunez@clinica1.com	$2a$10$8qIHlP5zhZf9mxjzXWx/JOJVmbGWL1WFus2Bvv.rFM3rjhU5hgXAm	4	1	\N	t	2	2026-07-20 22:01:43.591578-04
+6	Ana Admin Farmacia	admin@farmacia1.com	$2a$10$ffa4bBamQW04bjzvHuHrEeJrze3/uxVSMx/cL80l0SfkbWskWl2YK	6	\N	1	t	1	2026-05-09 14:58:14.094765-04
 \.
 
 
@@ -337,7 +337,7 @@ SELECT pg_catalog.setval('public.sesiones_id_seq', 1, false);
 -- Name: usuarios_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.usuarios_id_seq', 12, true);
+SELECT pg_catalog.setval('public.usuarios_id_seq', 13, true);
 
 
 --

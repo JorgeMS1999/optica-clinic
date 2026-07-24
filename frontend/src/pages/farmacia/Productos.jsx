@@ -86,6 +86,7 @@ export default function Productos() {
 
   const sinStock = productos.filter(p => parseInt(p.stock_actual) <= 0).length
   const bajoStockCount = productos.filter(p => parseInt(p.stock_actual) > 0 && parseInt(p.stock_actual) <= p.stock_minimo).length
+  const sinPrecio = productos.filter(p => parseFloat(p.precio_venta) === 0).length
 
   return (
     <div className="space-y-5">
@@ -100,9 +101,9 @@ export default function Productos() {
         </button>
       </div>
 
-      {/* Alertas de stock */}
-      {(sinStock > 0 || bajoStockCount > 0) && (
-        <div className="flex gap-3">
+      {/* Alertas de stock y precio */}
+      {(sinStock > 0 || bajoStockCount > 0 || sinPrecio > 0) && (
+        <div className="flex gap-3 flex-wrap">
           {sinStock > 0 && (
             <div className="flex items-center gap-2 bg-red-50 border border-red-100 text-red-700 px-4 py-2.5 rounded-xl text-sm">
               <AlertTriangle size={16} />
@@ -113,6 +114,12 @@ export default function Productos() {
             <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-100 text-yellow-700 px-4 py-2.5 rounded-xl text-sm">
               <AlertTriangle size={16} />
               <span><strong>{bajoStockCount}</strong> con stock bajo</span>
+            </div>
+          )}
+          {sinPrecio > 0 && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 text-amber-700 px-4 py-2.5 rounded-xl text-sm">
+              <AlertTriangle size={16} />
+              <span><strong>{sinPrecio}</strong> producto{sinPrecio > 1 ? 's' : ''} sin precio — se pueden vender gratis por error, complétalos cuanto antes</span>
             </div>
           )}
         </div>
@@ -161,6 +168,7 @@ export default function Productos() {
                   <td className="px-5 py-3">
                     <p className="font-medium text-gray-800">{p.nombre}</p>
                     {p.codigo && <p className="text-gray-400 text-xs font-mono">{p.codigo}</p>}
+                    {p.descripcion && <p className="text-amber-600 text-xs mt-0.5">{p.descripcion}</p>}
                   </td>
                   <td className="px-5 py-3 text-gray-500 text-xs">{p.categoria_nombre || '—'}</td>
                   <td className="px-5 py-3 text-gray-500 text-xs">
@@ -168,8 +176,14 @@ export default function Productos() {
                       ? `${p.unidades_por_lote} uds. / ${p.unidad_medida}`
                       : p.unidad_medida}
                   </td>
-                  <td className="px-5 py-3 text-right font-semibold text-gray-800">
-                    Bs. {parseFloat(p.precio_venta).toFixed(2)}
+                  <td className="px-5 py-3 text-right font-semibold">
+                    {parseFloat(p.precio_venta) === 0 ? (
+                      <span className="text-amber-600 flex items-center justify-end gap-1">
+                        <AlertTriangle size={13} /> Sin precio
+                      </span>
+                    ) : (
+                      <span className="text-gray-800">Bs. {parseFloat(p.precio_venta).toFixed(2)}</span>
+                    )}
                   </td>
                   <td className="px-5 py-3">
                     <StockBadge stock={parseInt(p.stock_actual)} minimo={p.stock_minimo} />
@@ -270,6 +284,13 @@ export default function Productos() {
                 onChange={e => setForm(f => ({ ...f, requiere_lote: e.target.checked }))}
                 className="w-4 h-4 rounded text-blue-600" />
               <label htmlFor="req_lote" className="text-sm text-gray-700">Requiere control de lote</label>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+              <textarea rows={2} value={form.descripcion}
+                onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                placeholder="Ej: precio por confirmar, nombre por revisar..." />
             </div>
           </div>
 

@@ -1,10 +1,15 @@
 # Respaldo de bases de datos
 
-Este respaldo (`.sql`) fue generado el 2026-07-21 e incluye la estructura completa
-más los datos reales configurados hasta ese momento: servicios y precios de la
-Clínica 1 (Luz de tu Visión), los 4 doctores registrados, usuarios de acceso al
-sistema, roles, clínicas y farmacias. **No incluye pacientes ni historial clínico**
-porque a esa fecha la clínica todavía no tenía pacientes reales cargados.
+`optica_clinica_1`, `optica_clinica_2`, `optica_clinica_3` y `optica_farmacia_2`,
+`optica_farmacia_3` fueron generados el 2026-07-21. `optica_global` y
+`optica_farmacia_1` se actualizaron el 2026-07-23.
+
+Incluyen la estructura completa más los datos reales configurados hasta esa
+fecha: servicios y precios de la Clínica 1 (Luz de tu Visión), los 4 doctores
+registrados, el catálogo de 54 productos y el proveedor de la Farmacia Luz de
+tu Visión (antes "Farmacia 1"), usuarios de acceso al sistema, roles, clínicas
+y farmacias. **No incluye pacientes, historial clínico ni ventas** porque a
+esa fecha todavía no había ninguno cargado.
 
 ## Requisitos
 

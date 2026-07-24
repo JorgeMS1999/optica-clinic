@@ -42,6 +42,8 @@ const ROL_HOME = {
 function HomeRedirect() {
   const { usuario } = useAuth()
   if (!usuario) return <Navigate to="/login" replace />
+  // Un cajero puede pertenecer a una clínica o a una farmacia — el token trae cuál
+  if (usuario.rol === 'cajero' && usuario.farmacia_db) return <Navigate to="/farmacia/ventas" replace />
   return <Navigate to={ROL_HOME[usuario.rol] || '/login'} replace />
 }
 
@@ -101,7 +103,7 @@ function AppRoutes() {
         <Route path="/caja/historial" element={<Historial />} />
       </Route>
 
-      {/* Farmacia */}
+      {/* Farmacia — admin_farmacia ve todo */}
       <Route element={
         <ProtectedRoute roles={['admin_farmacia']}>
           <Layout />
@@ -109,12 +111,21 @@ function AppRoutes() {
       }>
         <Route path="/farmacia/dashboard"   element={<FarmaciaDashboard />} />
         <Route path="/farmacia/productos"   element={<Productos />} />
-        <Route path="/farmacia/ventas"      element={<Ventas />} />
-        <Route path="/farmacia/historial"   element={<HistorialVentas />} />
         <Route path="/farmacia/inventario"  element={<Inventario />} />
         <Route path="/farmacia/proveedores"  element={<Proveedores />} />
         <Route path="/farmacia/ingresos"    element={<HistorialIngresos />} />
         <Route path="/farmacia/reportes"    element={<ReportesFarmacia />} />
+        <Route path="/farmacia/usuarios"    element={<Usuarios />} />
+      </Route>
+
+      {/* Punto de venta de farmacia — admin_farmacia y cajero (de farmacia) */}
+      <Route element={
+        <ProtectedRoute roles={['admin_farmacia', 'cajero']}>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route path="/farmacia/ventas"      element={<Ventas />} />
+        <Route path="/farmacia/historial"   element={<HistorialVentas />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

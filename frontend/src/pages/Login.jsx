@@ -26,7 +26,11 @@ export default function Login() {
     try {
       const usuario = await login(form.email, form.password)
       toast.success(`Bienvenido, ${usuario.nombre}`)
-      navigate(ROL_HOME[usuario.rol] || '/')
+      // Un cajero puede pertenecer a una clínica o a una farmacia — depende de con cuál viene el token
+      const destino = usuario.rol === 'cajero' && usuario.farmacia_db
+        ? '/farmacia/ventas'
+        : ROL_HOME[usuario.rol] || '/'
+      navigate(destino)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Credenciales incorrectas')
     } finally {

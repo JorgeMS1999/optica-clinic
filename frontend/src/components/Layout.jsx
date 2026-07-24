@@ -42,6 +42,10 @@ const MENUS = {
     { label: 'Cobrar',          icon: CreditCard,      to: '/caja/cobro', end: true },
     { label: 'Historial',       icon: ClipboardList,   to: '/caja/historial' },
   ],
+  cajero_farmacia: [
+    { label: 'Nueva Venta',     icon: CreditCard,      to: '/farmacia/ventas', end: true },
+    { label: 'Historial Ventas',icon: History,         to: '/farmacia/historial' },
+  ],
   admin_farmacia: [
     { label: 'Dashboard',       icon: LayoutDashboard, to: '/farmacia/dashboard',   end: true },
     { label: 'Nueva Venta',     icon: CreditCard,      to: '/farmacia/ventas',      end: true },
@@ -50,6 +54,7 @@ const MENUS = {
     { label: 'Inventario',      icon: ClipboardList,   to: '/farmacia/inventario' },
     { label: 'Proveedores',     icon: Truck,           to: '/farmacia/proveedores' },
     { label: 'Ingresos',        icon: TrendingDown,    to: '/farmacia/ingresos' },
+    { label: 'Usuarios',        icon: Users,           to: '/farmacia/usuarios' },
     { label: 'Reportes',        icon: BarChart2,       to: '/farmacia/reportes' },
   ],
 }
@@ -82,6 +87,10 @@ export default function Layout() {
   let menuRol = usuario?.rol
   if (usuario?.rol === 'superadmin' && enContexto) {
     menuRol = usuario.clinica_db ? 'admin_clinica' : 'admin_farmacia'
+  }
+  // Un cajero de farmacia usa un menú distinto al cajero de clínica
+  if (usuario?.rol === 'cajero' && usuario.farmacia_db) {
+    menuRol = 'cajero_farmacia'
   }
   const menu = MENUS[menuRol] || []
 
