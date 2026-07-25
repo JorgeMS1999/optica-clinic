@@ -63,17 +63,19 @@ router.post('/entrar-establecimiento', authMiddleware, requireRole('superadmin')
     }
 
     const payload = {
-      id:             req.user.id,
-      nombre:         req.user.nombre,
-      email:          req.user.email,
-      rol:            'superadmin',
-      clinica_id:     clinica_id   || null,
-      clinica_db:     clinica_db,
-      farmacia_id:    farmacia_id  || null,
-      farmacia_db:    farmacia_db,
+      id:              req.user.id,
+      nombre:          req.user.nombre,
+      email:           req.user.email,
+      rol:             'superadmin',
+      clinica_id:      clinica_id   || null,
+      clinica_db:      clinica_db,
+      clinica_nombre:  contexto_tipo === 'clinica'  ? contexto_nombre : null,
+      farmacia_id:     farmacia_id  || null,
+      farmacia_db:     farmacia_db,
+      farmacia_nombre: contexto_tipo === 'farmacia' ? contexto_nombre : null,
       contexto_tipo,
       contexto_nombre,
-      _modo_contexto: true,
+      _modo_contexto:  true,
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Calendar, Pencil } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import Modal from '../../components/ui/Modal'
@@ -20,7 +20,7 @@ export default function Citas() {
   const [citas, setCitas] = useState([])
   const [loading, setLoading] = useState(false)
   const [modalNueva, setModalNueva] = useState(false)
-  const [citaSeleccionada, setCitaSeleccionada] = useState(null)
+  const [citaEditar, setCitaEditar] = useState(null)
 
   const cargarCitas = useCallback(async (f) => {
     setLoading(true)
@@ -140,17 +140,26 @@ export default function Citas() {
                   <td className="px-6 py-4"><Badge value={c.tipo} /></td>
                   <td className="px-6 py-4"><Badge value={c.estado} /></td>
                   <td className="px-6 py-4">
-                    <select
-                      value={c.estado}
-                      onChange={e => cambiarEstado(c.id, e.target.value)}
-                      className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      {ESTADOS.map(s => (
-                        <option key={s} value={s}>
-                          {s.replace('_',' ')}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={c.estado}
+                        onChange={e => cambiarEstado(c.id, e.target.value)}
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        {ESTADOS.map(s => (
+                          <option key={s} value={s}>
+                            {s.replace('_',' ')}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => setCitaEditar(c)}
+                        title="Editar cita y servicios"
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -159,10 +168,17 @@ export default function Citas() {
         )}
       </div>
 
-      <Modal open={modalNueva} onClose={() => setModalNueva(false)} title="Nueva Cita" size="md">
+      <Modal
+        open={modalNueva || !!citaEditar}
+        onClose={() => { setModalNueva(false); setCitaEditar(null) }}
+        title={citaEditar ? 'Editar Cita' : 'Nueva Cita'}
+        size="xl"
+      >
         <NuevaCitaForm
+          key={citaEditar?.id || 'nueva'}
           fechaDefault={fecha}
-          onGuardada={() => { setModalNueva(false); cargarCitas(fecha) }}
+          cita={citaEditar}
+          onGuardada={() => { setModalNueva(false); setCitaEditar(null); cargarCitas(fecha) }}
         />
       </Modal>
     </div>

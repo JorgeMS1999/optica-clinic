@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import api from '../services/api'
 import toast from 'react-hot-toast'
 import {
   LayoutDashboard, Calendar, Users, UserCheck, ClipboardList,
@@ -80,8 +81,25 @@ const ROL_COLOR = {
 export default function Layout() {
   const { usuario, logout, enContexto, salirEstablecimiento } = useAuth()
   const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [estabNombre, setEstabNombre] = useState(null) // nombre real del establecimiento
+
+  // Traer el nombre real de la clínica/farmacia (no depende de re-loguearse).
+  // Superadmin recibe TODAS: se elige la del contexto por id.
+  useEffect(() => {
+    const fid = usuario?.farmacia_id, cid = usuario?.clinica_id
+    if (usuario?.farmacia_db) {
+      api.get('/farmacias')
+        .then(r => setEstabNombre((r.data.find(f => f.id === fid) || r.data[0])?.nombre || null))
+        .catch(() => {})
+    } else if (usuario?.clinica_db) {
+      api.get('/clinicas')
+        .then(r => setEstabNombre((r.data.find(c => c.id === cid) || r.data[0])?.nombre || null))
+        .catch(() => {})
+    }
+  }, [usuario?.farmacia_db, usuario?.clinica_db, usuario?.farmacia_id, usuario?.clinica_id])
 
   // Superadmin en contexto: mostrar menú del establecimiento que está visitando
   let menuRol = usuario?.rol
@@ -141,7 +159,9 @@ export default function Layout() {
             <Eye size={18} className="text-blue-900" />
           </div>
           {sidebarOpen && (
-            <span className="font-bold text-lg whitespace-nowrap">Óptica Clínica</span>
+            <span className="font-bold text-base leading-tight line-clamp-2">
+              {estabNombre || usuario?.clinica_nombre || usuario?.farmacia_nombre || 'Óptica Clínica'}
+            </span>
           )}
         </div>
 
@@ -181,12 +201,12 @@ export default function Layout() {
           <div className="flex items-center gap-2 text-gray-500 text-sm">
             {usuario?.clinica_db && (
               <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium">
-                {usuario.clinica_db.replace('optica_clinica_', 'Clínica ')}
+                {usuario.clinica_nombre || estabNombre || usuario.clinica_db.replace('optica_clinica_', 'Clínica ')}
               </span>
             )}
             {usuario?.farmacia_db && (
               <span className="bg-rose-50 text-rose-700 px-3 py-1 rounded-full text-xs font-medium">
-                {usuario.farmacia_db.replace('optica_farmacia_', 'Farmacia ')}
+                {usuario.farmacia_nombre || estabNombre || usuario.farmacia_db.replace('optica_farmacia_', 'Farmacia ')}
               </span>
             )}
           </div>

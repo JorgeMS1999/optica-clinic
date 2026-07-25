@@ -84,3 +84,33 @@ incorrectas — no un bug del código.
   clínicas/farmacias que se creen a futuro ya nazcan con el cambio.
 - Antes de dar por buena una funcionalidad, pruébala en el navegador con una
   de las cuentas reales — no solo revises el código.
+
+## Cambios recientes (funcionalidades agregadas)
+
+> Si restaurás las bases desde `database/*.sql`, **aplicá primero los cambios de
+> esquema** documentados en [database/README.md](database/README.md#actualizaciones-de-esquema-posteriores-al-backup)
+> (tabla `cita_servicios` en clínicas y columna `productos.imagen` en farmacias).
+> Sin eso, estas funciones fallan.
+
+- **Procedimientos/servicios con precio en la cita.** Al registrar (o editar) una
+  cita se pueden elegir servicios/procedimientos/cirugías; el precio se trae del
+  catálogo y es editable ahí mismo (para descuentos de fundación o precio
+  variable). Se guardan en la tabla nueva **`cita_servicios`** (por clínica).
+  Los de tipo **procedimiento/cirugía pasan directo a caja**; las **consultas**
+  siguen su flujo normal (doctor marca atendida → caja). Ver
+  `frontend/src/components/SelectorServiciosCita.jsx`, `NuevaCitaForm.jsx`,
+  `citas.routes.js` y el pickup en `pagos.routes.js` (`/pendientes`).
+- **Imágenes de producto (farmacia).** Columna **`productos.imagen`** que guarda la
+  foto como data URL **dentro de la base** (viaja con el backup). Se sube desde
+  Productos, se comprime en el navegador (`frontend/src/utils/imagen.js`).
+- **POS de venta rediseñado y responsive.** `frontend/src/pages/farmacia/Ventas.jsx`
+  es una grilla de productos con foto, filtros por categoría y buscador; los sin
+  stock salen en gris. Se apila en pantallas chicas (usable en teléfono). El botón
+  Cobrar queda fijo. El stock lo valida el backend al vender (rechaza sobreventa).
+- **Comprobante de venta = ticket 80mm** (antes A4). Ver
+  `frontend/src/utils/imprimirComprobanteVenta.js`.
+- **Nombre real del establecimiento** en topbar, menú lateral y comprobantes. El
+  login ahora mete `clinica_nombre`/`farmacia_nombre` en el JWT
+  (`auth.service.js`) y el `Layout` también lo trae por API. Ojo: al listar
+  `/clinicas` o `/farmacias`, el **superadmin recibe TODAS** — hay que elegir la del
+  contexto por `id` (no `data[0]`), si no sale el nombre equivocado.

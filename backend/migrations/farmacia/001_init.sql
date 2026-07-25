@@ -47,6 +47,7 @@ CREATE TABLE productos (
     codigo              VARCHAR(50) UNIQUE,
     nombre              VARCHAR(150) NOT NULL,
     descripcion         TEXT,
+    imagen              TEXT,                          -- foto del producto (data URL, viaja con el respaldo)
     categoria_id        INTEGER REFERENCES categorias_producto(id),
     proveedor_id        INTEGER REFERENCES proveedores(id),
     unidad_medida       VARCHAR(30) DEFAULT 'unidad',  -- unidad, caja, frasco, etc.

@@ -50,6 +50,42 @@ tus credenciales de PostgreSQL (mismo usuario/contraseña que usaste arriba).
 El `JWT_SECRET` no necesita ser el mismo que en otras máquinas — puede ser
 cualquier texto largo, cada servidor firma sus propias sesiones.
 
+## Actualizaciones de esquema posteriores al backup
+
+> ⚠️ **IMPORTANTE.** Estos `.sql` se generaron antes de dos funcionalidades nuevas.
+> Si restaurás los backups en una máquina nueva, **corré también estos cambios** o
+> la app fallará (al registrar procedimientos en una cita y al subir fotos de
+> productos). Las migraciones en `backend/migrations/` ya los incluyen, así que las
+> clínicas/farmacias que se creen **nuevas** desde el panel de superadmin ya nacen
+> con ellos — esto es solo para las bases **restauradas** de estos backups.
+
+### En las 3 clínicas — tabla `cita_servicios`
+
+Permite registrar procedimientos/cirugías **con su precio** desde la cita (precio
+del catálogo, editable ahí mismo). Los procedimientos y cirugías así agendados
+pasan directo a caja.
+
+```powershell
+$env:PGPASSWORD = "TU_CONTRASEÑA_DE_POSTGRES"
+$pg = "C:\Program Files\PostgreSQL\17\bin"
+foreach ($db in "optica_clinica_1","optica_clinica_2","optica_clinica_3") {
+    & "$pg\psql.exe" -h localhost -U postgres -d $db -c "CREATE TABLE IF NOT EXISTS cita_servicios (id SERIAL PRIMARY KEY, cita_id INTEGER NOT NULL REFERENCES citas(id) ON DELETE CASCADE, servicio_id INTEGER NOT NULL REFERENCES servicios(id), precio_cobrado NUMERIC(10,2) NOT NULL, notas TEXT); CREATE INDEX IF NOT EXISTS idx_cita_servicios_cita ON cita_servicios(cita_id);"
+}
+```
+
+### En las 3 farmacias — columna `productos.imagen`
+
+Permite subir una **foto a cada producto**. La imagen se guarda dentro de la base
+(comprimida como data URL), así **viaja con estos mismos backups** cuando exportes.
+
+```powershell
+$env:PGPASSWORD = "TU_CONTRASEÑA_DE_POSTGRES"
+$pg = "C:\Program Files\PostgreSQL\17\bin"
+foreach ($db in "optica_farmacia_1","optica_farmacia_2","optica_farmacia_3") {
+    & "$pg\psql.exe" -h localhost -U postgres -d $db -c "ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen TEXT;"
+}
+```
+
 ## Cuentas para entrar al sistema
 
 Estas cuentas ya existen en el respaldo restaurado (las contraseñas están

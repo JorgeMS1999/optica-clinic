@@ -4,7 +4,9 @@ const { globalDB } = require('../../config/db');
 
 async function login(email, password) {
   const res = await globalDB.query(
-    `SELECT u.*, r.nombre AS rol, c.db_name AS clinica_db, f.db_name AS farmacia_db
+    `SELECT u.*, r.nombre AS rol,
+            c.db_name AS clinica_db,  c.nombre AS clinica_nombre,
+            f.db_name AS farmacia_db, f.nombre AS farmacia_nombre
      FROM usuarios u
      JOIN roles r ON r.id = u.rol_id
      LEFT JOIN clinicas c ON c.id = u.clinica_id
@@ -20,14 +22,16 @@ async function login(email, password) {
   if (!ok) throw new Error('Credenciales incorrectas');
 
   const payload = {
-    id:          usuario.id,
-    nombre:      usuario.nombre,
-    email:       usuario.email,
-    rol:         usuario.rol,
-    clinica_id:  usuario.clinica_id,
-    clinica_db:  usuario.clinica_db,
-    farmacia_id: usuario.farmacia_id,
-    farmacia_db: usuario.farmacia_db,
+    id:              usuario.id,
+    nombre:          usuario.nombre,
+    email:           usuario.email,
+    rol:             usuario.rol,
+    clinica_id:      usuario.clinica_id,
+    clinica_db:      usuario.clinica_db,
+    clinica_nombre:  usuario.clinica_nombre,
+    farmacia_id:     usuario.farmacia_id,
+    farmacia_db:     usuario.farmacia_db,
+    farmacia_nombre: usuario.farmacia_nombre,
   };
 
   const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });

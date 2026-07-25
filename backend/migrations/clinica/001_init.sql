@@ -181,6 +181,20 @@ CREATE TABLE consulta_servicios (
 );
 
 -- ----------------------------------------------------------
+-- SERVICIOS PLANIFICADOS EN LA CITA
+-- Procedimientos/cirugías/exámenes que se agendan con su precio
+-- desde el registro de la cita (coordinadora, admin o doctor).
+-- Los procedimientos y cirugías pasan directo a caja con estos servicios.
+-- ----------------------------------------------------------
+CREATE TABLE cita_servicios (
+    id              SERIAL PRIMARY KEY,
+    cita_id         INTEGER NOT NULL REFERENCES citas(id) ON DELETE CASCADE,
+    servicio_id     INTEGER NOT NULL REFERENCES servicios(id),
+    precio_cobrado  NUMERIC(10,2) NOT NULL,
+    notas           TEXT
+);
+
+-- ----------------------------------------------------------
 -- PAGOS
 -- ----------------------------------------------------------
 CREATE TABLE pagos (
@@ -216,5 +230,6 @@ CREATE INDEX idx_citas_fecha        ON citas(fecha);
 CREATE INDEX idx_citas_doctor       ON citas(doctor_id);
 CREATE INDEX idx_citas_paciente     ON citas(paciente_id);
 CREATE INDEX idx_consultas_paciente ON consultas(paciente_id);
+CREATE INDEX idx_cita_servicios_cita ON cita_servicios(cita_id);
 CREATE INDEX idx_pagos_cita         ON pagos(cita_id);
 CREATE INDEX idx_pagos_fecha        ON pagos(creado_en);

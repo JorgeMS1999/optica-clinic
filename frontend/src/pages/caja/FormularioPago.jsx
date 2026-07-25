@@ -47,9 +47,10 @@ export default function FormularioPago({ cita, onPagado }) {
     }).catch(() => {})
 
     api.get('/clinicas').then(r => {
-      setClinica(r.data[0] || null)
+      // Superadmin recibe TODAS las clínicas; elegir la del contexto por id.
+      setClinica(r.data.find(c => c.id === usuario?.clinica_id) || r.data[0] || null)
     }).catch(() => {})
-  }, [cita.tipo])
+  }, [cita.tipo, usuario?.clinica_id])
 
   // Pre-cargar servicios de la consulta si existen
   useEffect(() => {

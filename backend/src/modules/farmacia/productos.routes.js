@@ -79,7 +79,8 @@ router.post('/', requireRole('superadmin', 'admin_farmacia'), async (req, res) =
     const {
       codigo, nombre, descripcion, categoria_id, proveedor_id,
       unidad_medida = 'unidad', unidades_por_lote = 1,
-      precio_compra = 0, precio_venta, stock_minimo = 5, requiere_lote = true
+      precio_compra = 0, precio_venta, stock_minimo = 5, requiere_lote = true,
+      imagen
     } = req.body
     if (!nombre?.trim()) return res.status(400).json({ error: 'Nombre requerido' })
     if (precio_venta === undefined || precio_venta === null || precio_venta === '' || precio_venta < 0) {
@@ -89,12 +90,12 @@ router.post('/', requireRole('superadmin', 'admin_farmacia'), async (req, res) =
     const r = await db(req).query(
       `INSERT INTO productos
          (codigo, nombre, descripcion, categoria_id, proveedor_id,
-          unidad_medida, unidades_por_lote, precio_compra, precio_venta, stock_minimo, requiere_lote)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+          unidad_medida, unidades_por_lote, precio_compra, precio_venta, stock_minimo, requiere_lote, imagen)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        RETURNING *`,
       [codigo || null, nombre.trim(), descripcion || null, categoria_id || null,
        proveedor_id || null, unidad_medida, unidades_por_lote,
-       precio_compra, precio_venta, stock_minimo, requiere_lote]
+       precio_compra, precio_venta, stock_minimo, requiere_lote, imagen || null]
     )
     res.status(201).json(r.rows[0])
   } catch (err) {
@@ -109,7 +110,7 @@ router.put('/:id', requireRole('superadmin', 'admin_farmacia'), async (req, res)
     const {
       codigo, nombre, descripcion, categoria_id, proveedor_id,
       unidad_medida, unidades_por_lote, precio_compra, precio_venta,
-      stock_minimo, requiere_lote, activo
+      stock_minimo, requiere_lote, activo, imagen
     } = req.body
     if (!nombre?.trim()) return res.status(400).json({ error: 'Nombre requerido' })
     if (precio_venta === undefined || precio_venta === null || precio_venta === '' || precio_venta < 0) {
@@ -119,11 +120,12 @@ router.put('/:id', requireRole('superadmin', 'admin_farmacia'), async (req, res)
       `UPDATE productos SET
          codigo=$1, nombre=$2, descripcion=$3, categoria_id=$4, proveedor_id=$5,
          unidad_medida=$6, unidades_por_lote=$7, precio_compra=$8, precio_venta=$9,
-         stock_minimo=$10, requiere_lote=$11, activo=$12
-       WHERE id=$13 RETURNING *`,
+         stock_minimo=$10, requiere_lote=$11, activo=$12, imagen=$13
+       WHERE id=$14 RETURNING *`,
       [codigo || null, nombre.trim(), descripcion || null, categoria_id || null,
        proveedor_id || null, unidad_medida, unidades_por_lote,
        precio_compra, precio_venta, stock_minimo, requiere_lote, activo ?? true,
+       imagen === undefined ? null : imagen,
        req.params.id]
     )
     res.json(r.rows[0])

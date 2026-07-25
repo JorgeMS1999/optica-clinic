@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Search, Package, AlertTriangle, Edit2 } from 'lucide-react'
+import { Plus, Search, Package, AlertTriangle, Edit2, ImagePlus, X } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import Modal from '../../components/ui/Modal'
 import EntradaLoteForm from './EntradaLoteForm'
+import { comprimirImagen } from '../../utils/imagen'
 
 function StockBadge({ stock, minimo }) {
   if (stock <= 0)      return <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">Sin stock</span>
@@ -14,7 +15,8 @@ function StockBadge({ stock, minimo }) {
 const FORM_VACIO = {
   codigo: '', nombre: '', descripcion: '', categoria_id: '', proveedor_id: '',
   unidad_medida: 'unidad', unidades_por_lote: 1,
-  precio_compra: '', precio_venta: '', stock_minimo: 5, requiere_lote: true
+  precio_compra: '', precio_venta: '', stock_minimo: 5, requiere_lote: true,
+  imagen: ''
 }
 
 export default function Productos() {
@@ -29,6 +31,22 @@ export default function Productos() {
   const [editando, setEditando]     = useState(null)
   const [form, setForm]             = useState(FORM_VACIO)
   const [guardando, setGuardando]   = useState(false)
+  const [subiendoImg, setSubiendoImg] = useState(false)
+
+  async function handleImagen(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSubiendoImg(true)
+    try {
+      const dataUrl = await comprimirImagen(file)
+      setForm(f => ({ ...f, imagen: dataUrl }))
+    } catch (err) {
+      toast.error(err.message || 'No se pudo procesar la imagen')
+    } finally {
+      setSubiendoImg(false)
+      e.target.value = ''
+    }
+  }
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -59,7 +77,8 @@ export default function Productos() {
       categoria_id: p.categoria_id || '', proveedor_id: p.proveedor_id || '',
       unidad_medida: p.unidad_medida, unidades_por_lote: p.unidades_por_lote,
       precio_compra: p.precio_compra, precio_venta: p.precio_venta,
-      stock_minimo: p.stock_minimo, requiere_lote: p.requiere_lote
+      stock_minimo: p.stock_minimo, requiere_lote: p.requiere_lote,
+      imagen: p.imagen || ''
     })
     setModalProd(true)
   }
@@ -166,9 +185,18 @@ export default function Productos() {
               {productos.map(p => (
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-5 py-3">
-                    <p className="font-medium text-gray-800">{p.nombre}</p>
-                    {p.codigo && <p className="text-gray-400 text-xs font-mono">{p.codigo}</p>}
-                    {p.descripcion && <p className="text-amber-600 text-xs mt-0.5">{p.descripcion}</p>}
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                        {p.imagen
+                          ? <img src={p.imagen} alt={p.nombre} className="w-full h-full object-cover" />
+                          : <Package size={18} className="text-gray-300" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-800">{p.nombre}</p>
+                        {p.codigo && <p className="text-gray-400 text-xs font-mono">{p.codigo}</p>}
+                        {p.descripcion && <p className="text-amber-600 text-xs mt-0.5">{p.descripcion}</p>}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-5 py-3 text-gray-500 text-xs">{p.categoria_nombre || '—'}</td>
                   <td className="px-5 py-3 text-gray-500 text-xs">
@@ -213,6 +241,30 @@ export default function Productos() {
         title={editando ? 'Editar Producto' : 'Nuevo Producto'} size="md">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
+            {/* Imagen del producto */}
+            <div className="col-span-2 flex items-center gap-4">
+              <div className="w-20 h-20 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                {form.imagen
+                  ? <img src={form.imagen} alt="Producto" className="w-full h-full object-cover" />
+                  : <Package size={26} className="text-gray-300" />}
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className={`inline-flex items-center gap-2 cursor-pointer text-sm font-medium px-3 py-2 rounded-xl border transition
+                  ${subiendoImg ? 'opacity-60 pointer-events-none' : ''} border-blue-200 text-blue-700 hover:bg-blue-50`}>
+                  <ImagePlus size={16} />
+                  {subiendoImg ? 'Procesando...' : form.imagen ? 'Cambiar imagen' : 'Agregar imagen'}
+                  <input type="file" accept="image/*" onChange={handleImagen} className="hidden" />
+                </label>
+                {form.imagen && (
+                  <button type="button" onClick={() => setForm(f => ({ ...f, imagen: '' }))}
+                    className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition">
+                    <X size={13} /> Quitar imagen
+                  </button>
+                )}
+                <p className="text-[11px] text-gray-400">Se comprime automáticamente. JPG o PNG.</p>
+              </div>
+            </div>
+
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Nombre <span className="text-red-500">*</span></label>
               <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}

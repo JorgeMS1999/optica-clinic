@@ -60,7 +60,7 @@ router.get('/hoy/resumen', async (req, res) => {
   }
 })
 
-// Obtener cita por ID
+// Obtener cita por ID (incluye servicios planificados de la cita)
 router.get('/:id', async (req, res) => {
   try {
     const r = await db(req).query(
@@ -74,40 +74,69 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     )
     if (!r.rows[0]) return res.status(404).json({ error: 'Cita no encontrada' })
-    res.json(r.rows[0])
+
+    const srv = await db(req).query(
+      `SELECT cs.servicio_id, cs.precio_cobrado, cs.notas,
+              s.nombre AS servicio_nombre, s.precio AS precio_base, c.nombre AS categoria
+       FROM cita_servicios cs
+       JOIN servicios s ON s.id = cs.servicio_id
+       JOIN categorias_servicio c ON c.id = s.categoria_id
+       WHERE cs.cita_id = $1`,
+      [req.params.id]
+    )
+    res.json({ ...r.rows[0], servicios: srv.rows })
   } catch (err) {
     res.status(400).json({ error: err.message })
   }
 })
 
-// Crear cita
-router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora'), async (req, res) => {
+// Crear cita (con sus servicios/procedimientos planificados)
+router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora', 'doctor'), async (req, res) => {
+  const client = await db(req).getClient()
   try {
-    const { paciente_id, doctor_id, fecha, hora, tipo, motivo, notas_coord } = req.body
+    await client.query('BEGIN')
+    const { paciente_id, doctor_id, fecha, hora, tipo, motivo, notas_coord, servicios = [] } = req.body
     if (!paciente_id || !doctor_id || !fecha || !hora || !tipo) {
+      await client.query('ROLLBACK')
       return res.status(400).json({ error: 'Datos incompletos' })
     }
 
     // Verificar que no haya choque de horario para el doctor
-    const choque = await db(req).query(
+    const choque = await client.query(
       `SELECT id FROM citas
        WHERE doctor_id=$1 AND fecha=$2 AND hora=$3
          AND estado NOT IN ('cancelada','no_asistio')`,
       [doctor_id, fecha, hora]
     )
     if (choque.rows[0]) {
+      await client.query('ROLLBACK')
       return res.status(400).json({ error: 'El doctor ya tiene una cita a esa hora' })
     }
 
-    const r = await db(req).query(
+    const r = await client.query(
       `INSERT INTO citas (paciente_id, doctor_id, fecha, hora, tipo, motivo, notas_coord, creado_por)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
       [paciente_id, doctor_id, fecha, hora, tipo,
        motivo || null, notas_coord || null, req.user.id]
     )
-    res.status(201).json(r.rows[0])
+    const cita = r.rows[0]
+
+    for (const sv of servicios) {
+      if (!sv.servicio_id) continue
+      await client.query(
+        `INSERT INTO cita_servicios (cita_id, servicio_id, precio_cobrado, notas)
+         VALUES ($1,$2,$3,$4)`,
+        [cita.id, sv.servicio_id, sv.precio_cobrado ?? 0, sv.notas || null]
+      )
+    }
+
+    await client.query('COMMIT')
+    res.status(201).json({ ...cita, servicios })
   } catch (err) {
+    await client.query('ROLLBACK')
     res.status(400).json({ error: err.message })
+  } finally {
+    client.release()
   }
 })
 
@@ -129,30 +158,51 @@ router.patch('/:id/estado', requireRole('superadmin', 'admin_clinica', 'coordina
   }
 })
 
-// Actualizar cita
-router.put('/:id', requireRole('superadmin', 'admin_clinica', 'coordinadora'), async (req, res) => {
+// Actualizar cita (y sus servicios/procedimientos planificados)
+router.put('/:id', requireRole('superadmin', 'admin_clinica', 'coordinadora', 'doctor'), async (req, res) => {
+  const client = await db(req).getClient()
   try {
-    const { doctor_id, fecha, hora, tipo, motivo, notas_coord } = req.body
+    await client.query('BEGIN')
+    const { doctor_id, fecha, hora, tipo, motivo, notas_coord, servicios } = req.body
 
     // Verificar que no haya choque de horario para el doctor (excluyendo esta misma cita)
-    const choque = await db(req).query(
+    const choque = await client.query(
       `SELECT id FROM citas
        WHERE doctor_id=$1 AND fecha=$2 AND hora=$3
          AND estado NOT IN ('cancelada','no_asistio') AND id != $4`,
       [doctor_id, fecha, hora, req.params.id]
     )
     if (choque.rows[0]) {
+      await client.query('ROLLBACK')
       return res.status(400).json({ error: 'El doctor ya tiene una cita a esa hora' })
     }
 
-    const r = await db(req).query(
+    const r = await client.query(
       `UPDATE citas SET doctor_id=$1, fecha=$2, hora=$3, tipo=$4, motivo=$5, notas_coord=$6
        WHERE id=$7 RETURNING *`,
       [doctor_id, fecha, hora, tipo, motivo || null, notas_coord || null, req.params.id]
     )
+
+    // Solo tocar servicios si vienen en el body (borrar y reinsertar)
+    if (Array.isArray(servicios)) {
+      await client.query(`DELETE FROM cita_servicios WHERE cita_id=$1`, [req.params.id])
+      for (const sv of servicios) {
+        if (!sv.servicio_id) continue
+        await client.query(
+          `INSERT INTO cita_servicios (cita_id, servicio_id, precio_cobrado, notas)
+           VALUES ($1,$2,$3,$4)`,
+          [req.params.id, sv.servicio_id, sv.precio_cobrado ?? 0, sv.notas || null]
+        )
+      }
+    }
+
+    await client.query('COMMIT')
     res.json(r.rows[0])
   } catch (err) {
+    await client.query('ROLLBACK')
     res.status(400).json({ error: err.message })
+  } finally {
+    client.release()
   }
 })
 

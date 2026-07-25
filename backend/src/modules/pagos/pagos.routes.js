@@ -10,7 +10,9 @@ function db(req) {
   return tenantDB(req.user.clinica_db)
 }
 
-// Cola de citas atendidas pendientes de pago (incluye servicios de la consulta)
+// Cola de citas pendientes de pago
+// Incluye: consultas atendidas (servicios los pone el doctor) y
+// procedimientos/cirugías agendados con servicios (pasan directo a caja).
 router.get('/pendientes', async (req, res) => {
   try {
     const citas = await db(req).query(
@@ -20,7 +22,12 @@ router.get('/pendientes', async (req, res) => {
        FROM citas c
        JOIN pacientes p ON p.id = c.paciente_id
        JOIN doctores  d ON d.id = c.doctor_id
-       WHERE c.estado = 'atendida'
+       WHERE c.estado NOT IN ('cancelada','no_asistio')
+         AND (
+           c.estado = 'atendida'
+           OR (c.tipo IN ('procedimiento','cirugia')
+               AND EXISTS (SELECT 1 FROM cita_servicios cs WHERE cs.cita_id = c.id))
+         )
          AND NOT EXISTS (
            SELECT 1 FROM pagos pg
            WHERE pg.cita_id = c.id AND pg.estado != 'anulado'
@@ -28,9 +35,10 @@ router.get('/pendientes', async (req, res) => {
        ORDER BY c.fecha DESC, c.hora DESC`
     )
 
-    // Para cada cita, buscar servicios de su consulta
+    // Para cada cita, los servicios a cobrar: si el doctor ya hizo la consulta
+    // usamos esos; si no, los servicios planificados en la cita.
     const resultado = await Promise.all(citas.rows.map(async (cita) => {
-      const srv = await db(req).query(
+      const consultaSrv = await db(req).query(
         `SELECT cs.servicio_id, cs.precio_cobrado, s.nombre AS servicio_nombre
          FROM consultas con
          JOIN consulta_servicios cs ON cs.consulta_id = con.id
@@ -38,7 +46,20 @@ router.get('/pendientes', async (req, res) => {
          WHERE con.cita_id = $1`,
         [cita.id]
       )
-      return { ...cita, servicios_consulta: srv.rows }
+
+      let servicios = consultaSrv.rows
+      if (servicios.length === 0) {
+        const citaSrv = await db(req).query(
+          `SELECT cs.servicio_id, cs.precio_cobrado, s.nombre AS servicio_nombre
+           FROM cita_servicios cs
+           JOIN servicios s ON s.id = cs.servicio_id
+           WHERE cs.cita_id = $1`,
+          [cita.id]
+        )
+        servicios = citaSrv.rows
+      }
+
+      return { ...cita, servicios_consulta: servicios }
     }))
 
     res.json(resultado)
