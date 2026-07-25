@@ -47,6 +47,28 @@ done
 
 Después de restaurar, copia `backend/.env.example` a `backend/.env` y completa
 tus credenciales de PostgreSQL (mismo usuario/contraseña que usaste arriba).
+El `JWT_SECRET` no necesita ser el mismo que en otras máquinas — puede ser
+cualquier texto largo, cada servidor firma sus propias sesiones.
+
+## Cuentas para entrar al sistema
+
+Estas cuentas ya existen en el respaldo restaurado (las contraseñas están
+hasheadas en la base de datos — esta es la única copia en texto plano):
+
+| Rol | Email | Contraseña |
+|---|---|---|
+| Super Admin | `superadmin@optica.com` | `password` |
+| Admin Clínica 1 | `admin@clinica1.com` | `Admin1234!` |
+| Coordinadora Clínica 1 | `coordinadora@clinica1.com` | `Coord1234!` |
+| Cajero Clínica 1 | `cajero@clinica1.com` | `Cajero1234!` |
+| Dr. Rubén Burgos | `burgos@clinica1.com` | `Doctor2026!` |
+| Dr. Fran Aroja | `aroja@clinica1.com` | `Doctor2026!` |
+| Dr. Augusto Chungara | `chungara@clinica1.com` | `Doctor2026!` |
+| Dr. Núñez | `nunez@clinica1.com` | `Doctor2026!` |
+| Admin Farmacia Luz de tu Vision | `admin@farmacia1.com` | `Farmacia2026!` |
+
+Clínica 2, Clínica 3, Farmacia 2 y Farmacia 3 no tienen ningún usuario
+creado todavía — hay que crearlos desde el panel de superadmin.
 
 ## Actualizar este respaldo más adelante
 
