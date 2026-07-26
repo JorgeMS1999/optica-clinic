@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { UserPlus, User, CalendarDays, Stethoscope, ClipboardList } from 'lucide-react'
+import { UserPlus, User, CalendarDays, Stethoscope, ClipboardList, CreditCard, Printer, CheckCircle } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import SelectorServiciosCita from '../../components/SelectorServiciosCita'
+import { useAuth } from '../../contexts/AuthContext'
+import { imprimirTicketCita } from '../../utils/imprimirTicketCita'
 
 const HORAS = Array.from({ length: 22 }, (_, i) => {
   const h = Math.floor(i / 2) + 7
@@ -16,14 +18,24 @@ const TIPOS = [
   { key: 'cirugia',       label: 'Cirugía' },
 ]
 
+const METODOS_PAGO = [
+  { key: 'efectivo',      label: 'Efectivo' },
+  { key: 'qr',            label: 'QR' },
+  { key: 'transferencia', label: 'Transf.' },
+  { key: 'seguro',        label: 'Seguro' },
+]
+
 const LABEL = 'block text-sm font-medium text-gray-700 mb-1.5'
 const INPUT = 'w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null }) {
   const editando = !!cita?.id
+  const { usuario } = useAuth()
 
   const [doctores, setDoctores]   = useState([])
   const [servicios, setServicios] = useState([])   // catálogo
+  const [clinica, setClinica]     = useState(null)
+  const [comprobante, setComprobante] = useState(null) // datos para el ticket tras cobrar
   const [busqueda, setBusqueda]   = useState('')
   const [pacientes, setPacientes] = useState([])
   const [form, setForm] = useState({
@@ -35,11 +47,23 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
   const [nuevoPaciente, setNuevoPaciente] = useState(null)
   const [creandoPaciente, setCreandoPaciente] = useState(false)
 
-  // Catálogo de doctores y servicios
+  // Cobro al registrar la cita (se paga en el acto, no queda pendiente)
+  const [metodoPago, setMetodoPago]         = useState('efectivo')
+  const [referenciaPago, setReferenciaPago] = useState('')
+  const [descuentoBs, setDescuentoBs]       = useState(0)   // descuento neto en Bs.
+
+  const totalServicios = selServicios.reduce((s, l) => s + (parseFloat(l.precio_cobrado) || 0), 0)
+  const descuentoMonto = Math.min(Math.max(parseFloat(descuentoBs) || 0, 0), totalServicios)
+  const totalCobrar    = Math.max(0, totalServicios - descuentoMonto)
+
+  // Catálogo de doctores, servicios e info de la clínica (para el comprobante)
   useEffect(() => {
     api.get('/doctores').then(r => setDoctores(r.data)).catch(() => {})
     api.get('/servicios').then(r => setServicios(r.data)).catch(() => {})
-  }, [])
+    api.get('/clinicas')
+      .then(r => setClinica(r.data.find(c => c.id === usuario?.clinica_id) || r.data[0] || null))
+      .catch(() => {})
+  }, [usuario?.clinica_id])
 
   // Precarga en modo edición
   useEffect(() => {
@@ -103,6 +127,8 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     if (!form.paciente_id) return toast.error('Selecciona un paciente')
     if (!form.doctor_id)   return toast.error('Selecciona un doctor')
 
+    const cobra = !editando && totalServicios > 0
+
     const payload = {
       ...form,
       servicios: selServicios.map(s => ({
@@ -111,22 +137,125 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         notas:          s.notas || null,
       })),
     }
+    if (cobra) {
+      payload.cobro = {
+        metodo_pago:     metodoPago,
+        descuento_monto: descuentoMonto,
+        referencia:      referenciaPago || null,
+      }
+    }
 
     setLoading(true)
     try {
       if (editando) {
         await api.put(`/citas/${cita.id}`, payload)
         toast.success('Cita actualizada')
-      } else {
-        await api.post('/citas', payload)
-        toast.success('Cita programada correctamente')
+        onGuardada()
+        return
       }
-      onGuardada()
+
+      const { data: nuevaCita } = await api.post('/citas', payload)
+
+      if (cobra && nuevaCita.pago) {
+        // Datos del paciente (HC y carnet) para el comprobante
+        let pac = { nombre: busqueda }
+        try { const { data } = await api.get(`/pacientes/${form.paciente_id}`); pac = data } catch { /* no crítico */ }
+        const doctorNombre = doctores.find(d => String(d.id) === String(form.doctor_id))?.nombre
+
+        setComprobante({
+          pago:            nuevaCita.pago,
+          servicios:       selServicios.map(s => ({ nombre: s._nombre, precio: parseFloat(s.precio_cobrado) || 0 })),
+          subtotal:        totalServicios,
+          descuento_monto: descuentoMonto,
+          total:           totalCobrar,
+          metodo_pago:     metodoPago,
+          referencia:      referenciaPago,
+          paciente:        pac,
+          doctorNombre,
+          fecha:           form.fecha,
+          hora:            form.hora,
+        })
+        toast.success(`Cita registrada y cobrada — Bs. ${totalCobrar.toFixed(2)}`)
+      } else {
+        toast.success('Cita programada correctamente')
+        onGuardada()
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || 'Error al guardar la cita')
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleImprimir() {
+    imprimirTicketCita({
+      clinica,
+      pago:            comprobante.pago,
+      paciente:        comprobante.paciente,
+      doctorNombre:    comprobante.doctorNombre,
+      fecha:           comprobante.fecha,
+      hora:            comprobante.hora,
+      servicios:       comprobante.servicios,
+      subtotal:        comprobante.subtotal,
+      descuento_monto: comprobante.descuento_monto,
+      total:           comprobante.total,
+      metodo_pago:     comprobante.metodo_pago,
+      referencia:      comprobante.referencia,
+      cajeroNombre:    usuario?.nombre,
+    })
+  }
+
+  // Pantalla de confirmación con opción de imprimir (tras cobrar)
+  if (comprobante) {
+    return (
+      <div className="flex flex-col items-center gap-5 py-4 text-center">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+          <CheckCircle size={36} className="text-green-500" />
+        </div>
+        <div>
+          <p className="text-xl font-bold text-gray-800">¡Cita registrada y cobrada!</p>
+          <p className="text-gray-500 text-sm mt-1">
+            {comprobante.paciente?.nombre}
+            {' · '}
+            <span className="font-semibold text-green-600">Bs. {comprobante.total.toFixed(2)}</span>
+          </p>
+        </div>
+
+        <div className="w-full bg-gray-50 rounded-2xl p-4 text-left space-y-2">
+          {comprobante.servicios.map((s, i) => (
+            <div key={i} className="flex justify-between text-sm">
+              <span className="text-gray-600">{s.nombre}</span>
+              <span className="font-medium">Bs. {s.precio.toFixed(2)}</span>
+            </div>
+          ))}
+          {comprobante.descuento_monto > 0 && (
+            <div className="flex justify-between text-sm text-red-500">
+              <span>Descuento</span>
+              <span>− Bs. {comprobante.descuento_monto.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2">
+            <span>Total</span>
+            <span className="text-green-600">Bs. {comprobante.total.toFixed(2)}</span>
+          </div>
+          <p className="text-xs text-gray-400 pt-1">
+            Método: {METODOS_PAGO.find(m => m.key === comprobante.metodo_pago)?.label || comprobante.metodo_pago}
+            {comprobante.referencia ? ` · Ref: ${comprobante.referencia}` : ''}
+          </p>
+        </div>
+
+        <div className="flex gap-3 w-full">
+          <button onClick={handleImprimir}
+            className="flex-1 flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-xl font-semibold text-sm transition">
+            <Printer size={18} /> Imprimir comprobante
+          </button>
+          <button onClick={onGuardada}
+            className="flex-1 border border-gray-300 hover:bg-gray-50 text-gray-700 py-3 rounded-xl font-semibold text-sm transition">
+            Listo
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -268,6 +397,58 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
             El precio se trae del catálogo y podés ajustarlo aquí mismo (descuentos o precio variable).
           </p>
 
+          {/* Cobro — se paga al registrar la cita */}
+          {!editando && totalServicios > 0 && (
+            <div className="border border-gray-200 rounded-xl p-3.5 space-y-3">
+              <div className="flex items-center gap-2">
+                <CreditCard size={15} className="text-blue-600" />
+                <span className="text-sm font-semibold text-gray-700">Pago</span>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Método de pago <span className="text-red-500">*</span></label>
+                <div className="grid grid-cols-4 gap-2">
+                  {METODOS_PAGO.map(m => (
+                    <button key={m.key} type="button" onClick={() => setMetodoPago(m.key)}
+                      className={`py-2 rounded-lg text-xs font-medium border transition
+                        ${metodoPago === m.key
+                          ? 'bg-blue-700 text-white border-blue-700'
+                          : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {['qr','transferencia','seguro'].includes(metodoPago) && (
+                <input type="text" value={referenciaPago}
+                  onChange={e => setReferenciaPago(e.target.value)}
+                  placeholder={metodoPago === 'seguro' ? 'Nro. póliza / autorización' : 'Nro. de comprobante / referencia'}
+                  className={INPUT} />
+              )}
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-500">Descuento Bs.</span>
+                  <span className="text-xs text-gray-400">−</span>
+                  <input type="number" min="0" step="1" value={descuentoBs}
+                    onChange={e => setDescuentoBs(e.target.value)}
+                    placeholder="0"
+                    className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] text-gray-400">Total a cobrar</p>
+                  <p className="text-lg font-bold text-green-600">Bs. {totalCobrar.toFixed(2)}</p>
+                </div>
+              </div>
+              {descuentoMonto > 0 && (
+                <p className="text-[11px] text-gray-400 text-right -mt-1">
+                  {totalServicios.toFixed(2)} − {descuentoMonto.toFixed(2)} de descuento
+                </p>
+              )}
+            </div>
+          )}
+
           <div>
             <label className={LABEL}>Motivo</label>
             <textarea rows={2} value={form.motivo}
@@ -295,8 +476,15 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
             : 'Sin servicios registrados'}
         </div>
         <button type="submit" disabled={loading}
-          className="bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white px-8 py-3 rounded-xl font-semibold text-sm transition shadow-sm">
-          {loading ? 'Guardando...' : editando ? 'Guardar cambios' : 'Programar Cita'}
+          className={`text-white px-8 py-3 rounded-xl font-semibold text-sm transition shadow-sm disabled:opacity-60
+            ${!editando && totalServicios > 0 ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-700 hover:bg-blue-800'}`}>
+          {loading
+            ? 'Guardando...'
+            : editando
+              ? 'Guardar cambios'
+              : totalServicios > 0
+                ? `Cobrar Bs. ${totalCobrar.toFixed(2)}`
+                : 'Programar Cita'}
         </button>
       </div>
     </form>

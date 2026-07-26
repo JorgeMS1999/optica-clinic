@@ -225,6 +225,7 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'cajero', 'coordinad
       cita_id, paciente_id,
       servicios,          // [{ servicio_id, cantidad, precio_unitario, descuento_item }]
       descuento_pct = 0,
+      descuento_monto: descuento_neto,   // opcional: descuento en Bs. (neto). Si viene, manda sobre el %
       metodo_pago,
       referencia,
       notas
@@ -249,7 +250,15 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'cajero', 'coordinad
       return sum + base - (s.descuento_item || 0)
     }, 0)
 
-    const descuento_monto = subtotal * (parseFloat(descuento_pct) / 100)
+    // Descuento: si viene un monto neto (Bs.) se usa ese; si no, se calcula desde el %
+    let descuento_monto, descuento_pct_final
+    if (descuento_neto !== undefined && descuento_neto !== null && descuento_neto !== '') {
+      descuento_monto     = Math.min(Math.max(parseFloat(descuento_neto) || 0, 0), subtotal)
+      descuento_pct_final = subtotal > 0 ? (descuento_monto / subtotal) * 100 : 0
+    } else {
+      descuento_pct_final = parseFloat(descuento_pct) || 0
+      descuento_monto     = subtotal * (descuento_pct_final / 100)
+    }
     const total = Math.max(0, subtotal - descuento_monto)
 
     // Insertar pago
@@ -259,7 +268,7 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'cajero', 'coordinad
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING *`,
       [cita_id, paciente_id, req.user.id,
-       subtotal, descuento_pct, descuento_monto, total,
+       subtotal, descuento_pct_final, descuento_monto, total,
        metodo_pago, referencia || null, notas || null]
     )
     const pago = pagoRes.rows[0]

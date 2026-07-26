@@ -95,7 +95,7 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora', 'doc
   const client = await db(req).getClient()
   try {
     await client.query('BEGIN')
-    const { paciente_id, doctor_id, fecha, hora, tipo, motivo, notas_coord, servicios = [] } = req.body
+    const { paciente_id, doctor_id, fecha, hora, tipo, motivo, notas_coord, servicios = [], cobro } = req.body
     if (!paciente_id || !doctor_id || !fecha || !hora || !tipo) {
       await client.query('ROLLBACK')
       return res.status(400).json({ error: 'Datos incompletos' })
@@ -121,8 +121,8 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora', 'doc
     )
     const cita = r.rows[0]
 
-    for (const sv of servicios) {
-      if (!sv.servicio_id) continue
+    const serviciosValidos = servicios.filter(sv => sv.servicio_id)
+    for (const sv of serviciosValidos) {
       await client.query(
         `INSERT INTO cita_servicios (cita_id, servicio_id, precio_cobrado, notas)
          VALUES ($1,$2,$3,$4)`,
@@ -130,8 +130,36 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora', 'doc
       )
     }
 
+    // Cobro en el mismo acto (atómico): la cita nunca queda "por cobrar"
+    let pago = null
+    if (cobro && serviciosValidos.length) {
+      const subtotal = serviciosValidos.reduce((s, sv) => s + (parseFloat(sv.precio_cobrado) || 0), 0)
+      const descuento_monto = Math.min(Math.max(parseFloat(cobro.descuento_monto) || 0, 0), subtotal)
+      const descuento_pct   = subtotal > 0 ? (descuento_monto / subtotal) * 100 : 0
+      const total           = Math.max(0, subtotal - descuento_monto)
+
+      const pagoRes = await client.query(
+        `INSERT INTO pagos
+           (cita_id, paciente_id, cajero_id, subtotal, descuento_pct, descuento_monto, total, metodo_pago, referencia, notas)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [cita.id, paciente_id, req.user.id,
+         subtotal, descuento_pct, descuento_monto, total,
+         cobro.metodo_pago || 'efectivo', cobro.referencia || null, cobro.notas || null]
+      )
+      pago = pagoRes.rows[0]
+
+      for (const sv of serviciosValidos) {
+        const base = parseFloat(sv.precio_cobrado) || 0
+        await client.query(
+          `INSERT INTO detalle_pago (pago_id, servicio_id, cantidad, precio_unitario, descuento_item, subtotal)
+           VALUES ($1,$2,1,$3,0,$4)`,
+          [pago.id, sv.servicio_id, base, base]
+        )
+      }
+    }
+
     await client.query('COMMIT')
-    res.status(201).json({ ...cita, servicios })
+    res.status(201).json({ ...cita, servicios, pago })
   } catch (err) {
     await client.query('ROLLBACK')
     res.status(400).json({ error: err.message })

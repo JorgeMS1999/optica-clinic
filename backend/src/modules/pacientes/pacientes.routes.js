@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
     const { q = '' } = req.query
     const busqueda = `%${q}%`
     const r = await db(req).query(
-      `SELECT id, nombre, carnet, telefono, fecha_nacimiento, sexo,
+      `SELECT id, nro_historia, nombre, carnet, telefono, fecha_nacimiento, sexo,
               registrado_completo, creado_en
        FROM pacientes
        WHERE nombre ILIKE $1 OR carnet ILIKE $1
@@ -24,6 +24,19 @@ router.get('/', async (req, res) => {
       [busqueda]
     )
     res.json(r.rows)
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+// Próximo N° de historia clínica (para mostrarlo antes de registrar)
+router.get('/proximo-historia', async (req, res) => {
+  try {
+    const r = await db(req).query(
+      `SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END AS proximo
+       FROM pacientes_nro_historia_seq`
+    )
+    res.json({ proximo: Number(r.rows[0]?.proximo) || 1 })
   } catch (err) {
     res.status(400).json({ error: err.message })
   }
@@ -39,6 +52,66 @@ router.get('/:id', async (req, res) => {
     res.json(r.rows[0])
   } catch (err) {
     res.status(400).json({ error: err.message })
+  }
+})
+
+// Registro completo — todos los datos (formulario de historia clínica)
+router.post('/', async (req, res) => {
+  const bool = v => (v === true || v === false) ? v : null
+  const client = await db(req).getClient()
+  try {
+    await client.query('BEGIN')
+    const {
+      nombre, carnet, nro_historia,
+      fecha_nacimiento, sexo, telefono, telefono_alt, email, direccion,
+      ocupacion, estado_civil,
+      tiene_alergias, dbt, hta, rmto,
+      antecedentes_oculares, antecedentes_familiares, alergias, medicamentos_actuales,
+    } = req.body
+
+    if (!nombre?.trim() || !carnet?.trim()) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ error: 'Nombre y carnet son requeridos' })
+    }
+
+    const nh = (nro_historia !== undefined && nro_historia !== null && String(nro_historia).trim() !== '')
+      ? parseInt(nro_historia) : null
+
+    const r = await client.query(
+      `INSERT INTO pacientes
+         (nro_historia, nombre, carnet, fecha_nacimiento, sexo, telefono, telefono_alt, email,
+          direccion, ocupacion, estado_civil, tiene_alergias, dbt, hta, rmto,
+          antecedentes_oculares, antecedentes_familiares, alergias, medicamentos_actuales,
+          registrado_completo)
+       VALUES (COALESCE($1, nextval('pacientes_nro_historia_seq')),
+               $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19, TRUE)
+       RETURNING *`,
+      [nh, nombre.trim(), carnet.trim(), fecha_nacimiento || null, sexo || null,
+       telefono || null, telefono_alt || null, email || null, direccion || null,
+       ocupacion || null, estado_civil || null,
+       bool(tiene_alergias), bool(dbt), bool(hta), bool(rmto),
+       antecedentes_oculares || null, antecedentes_familiares || null,
+       alergias || null, medicamentos_actuales || null]
+    )
+
+    // Mantener la secuencia por delante del mayor N° usado (por si se puso uno manual)
+    await client.query(
+      `SELECT setval('pacientes_nro_historia_seq', GREATEST((SELECT MAX(nro_historia) FROM pacientes), 1), true)`
+    )
+
+    await client.query('COMMIT')
+    res.status(201).json(r.rows[0])
+  } catch (err) {
+    await client.query('ROLLBACK')
+    if (err.code === '23505') {
+      if (String(err.constraint || '').includes('carnet'))
+        return res.status(400).json({ error: 'Ya existe un paciente con ese carnet' })
+      if (String(err.constraint || '').includes('nro_historia'))
+        return res.status(400).json({ error: 'Ese N° de historia clínica ya está en uso' })
+    }
+    res.status(400).json({ error: err.message })
+  } finally {
+    client.release()
   }
 })
 
@@ -68,30 +141,46 @@ router.post('/rapido', async (req, res) => {
 
 // Completar / actualizar ficha completa del paciente
 router.put('/:id', async (req, res) => {
+  const bool = v => (v === true || v === false) ? v : null
   try {
     const {
-      nombre, carnet, fecha_nacimiento, sexo, telefono, telefono_alt,
-      email, direccion, ocupacion, antecedentes_oculares,
-      antecedentes_familiares, alergias, medicamentos_actuales
+      nombre, carnet, nro_historia, fecha_nacimiento, sexo, telefono, telefono_alt,
+      email, direccion, ocupacion, estado_civil,
+      tiene_alergias, dbt, hta, rmto,
+      antecedentes_oculares, antecedentes_familiares, alergias, medicamentos_actuales
     } = req.body
+
+    const nh = (nro_historia !== undefined && nro_historia !== null && String(nro_historia).trim() !== '')
+      ? parseInt(nro_historia) : null
 
     const r = await db(req).query(
       `UPDATE pacientes SET
-        nombre=$1, carnet=$2, fecha_nacimiento=$3, sexo=$4,
-        telefono=$5, telefono_alt=$6, email=$7, direccion=$8,
-        ocupacion=$9, antecedentes_oculares=$10, antecedentes_familiares=$11,
-        alergias=$12, medicamentos_actuales=$13,
+        nombre=$1, carnet=$2,
+        nro_historia = COALESCE($3, nro_historia),
+        fecha_nacimiento=$4, sexo=$5,
+        telefono=$6, telefono_alt=$7, email=$8, direccion=$9,
+        ocupacion=$10, estado_civil=$11,
+        tiene_alergias=$12, dbt=$13, hta=$14, rmto=$15,
+        antecedentes_oculares=$16, antecedentes_familiares=$17,
+        alergias=$18, medicamentos_actuales=$19,
         registrado_completo=TRUE, actualizado_en=NOW()
-       WHERE id=$14 RETURNING *`,
-      [nombre, carnet, fecha_nacimiento || null, sexo || null,
+       WHERE id=$20 RETURNING *`,
+      [nombre, carnet, nh, fecha_nacimiento || null, sexo || null,
        telefono || null, telefono_alt || null, email || null, direccion || null,
-       ocupacion || null, antecedentes_oculares || null,
-       antecedentes_familiares || null, alergias || null,
-       medicamentos_actuales || null, req.params.id]
+       ocupacion || null, estado_civil || null,
+       bool(tiene_alergias), bool(dbt), bool(hta), bool(rmto),
+       antecedentes_oculares || null, antecedentes_familiares || null,
+       alergias || null, medicamentos_actuales || null, req.params.id]
     )
     if (!r.rows[0]) return res.status(404).json({ error: 'Paciente no encontrado' })
     res.json(r.rows[0])
   } catch (err) {
+    if (err.code === '23505') {
+      if (String(err.constraint || '').includes('carnet'))
+        return res.status(400).json({ error: 'Ya existe un paciente con ese carnet' })
+      if (String(err.constraint || '').includes('nro_historia'))
+        return res.status(400).json({ error: 'Ese N° de historia clínica ya está en uso' })
+    }
     res.status(400).json({ error: err.message })
   }
 })

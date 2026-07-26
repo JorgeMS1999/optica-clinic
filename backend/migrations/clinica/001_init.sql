@@ -35,6 +35,7 @@ CREATE TABLE horarios_doctor (
 -- ----------------------------------------------------------
 CREATE TABLE pacientes (
     id                  SERIAL PRIMARY KEY,
+    nro_historia        SERIAL UNIQUE,                 -- N° de historia clínica correlativo por clínica (auto)
     -- Datos básicos (registro rápido en recepción)
     nombre              VARCHAR(150) NOT NULL,
     carnet              VARCHAR(30)  NOT NULL UNIQUE,
@@ -46,6 +47,12 @@ CREATE TABLE pacientes (
     email               VARCHAR(120),
     direccion           TEXT,
     ocupacion           VARCHAR(100),
+    estado_civil        VARCHAR(40),
+    -- Antecedentes rápidos (checkboxes SI/NO de la historia clínica impresa)
+    tiene_alergias      BOOLEAN,   -- Alergias SI/NO
+    dbt                 BOOLEAN,   -- Diabetes
+    hta                 BOOLEAN,   -- Hipertensión arterial
+    rmto                BOOLEAN,   -- (según formulario impreso)
     -- Antecedentes oftalmológicos
     antecedentes_oculares   TEXT,
     antecedentes_familiares TEXT,
@@ -206,7 +213,7 @@ CREATE TABLE pagos (
     descuento_pct   NUMERIC(5,2) DEFAULT 0,   -- porcentaje 0-100
     descuento_monto NUMERIC(10,2) DEFAULT 0,
     total           NUMERIC(10,2) NOT NULL,
-    metodo_pago     VARCHAR(30) NOT NULL CHECK (metodo_pago IN ('efectivo','tarjeta','transferencia','seguro')),
+    metodo_pago     VARCHAR(30) NOT NULL CHECK (metodo_pago IN ('efectivo','qr','transferencia','seguro','tarjeta')),
     referencia      VARCHAR(100),  -- nro de comprobante / referencia
     estado          VARCHAR(20) DEFAULT 'pagado' CHECK (estado IN ('pagado','anulado','pendiente')),
     notas           TEXT,

@@ -1,17 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Search, UserPlus, ChevronRight, CheckCircle, Clock } from 'lucide-react'
+import { Search, UserPlus, ChevronRight, CheckCircle, Clock, Ruler } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import Modal from '../../components/ui/Modal'
 import FichaCompletaForm from './FichaCompletaForm'
+import { imprimirCalibracionHC } from '../../utils/imprimirCalibracion'
 
 export default function Pacientes() {
   const [pacientes, setPacientes] = useState([])
   const [busqueda, setBusqueda] = useState('')
   const [loading, setLoading] = useState(false)
-  const [modalRapido, setModalRapido] = useState(false)
+  const [modalNuevo, setModalNuevo] = useState(false)
   const [modalFicha, setModalFicha] = useState(null)
-  const [formRapido, setFormRapido] = useState({ nombre: '', carnet: '' })
+  const [proximoHC, setProximoHC] = useState(null)
 
   const buscar = useCallback(async (q) => {
     setLoading(true)
@@ -22,21 +23,28 @@ export default function Pacientes() {
     finally { setLoading(false) }
   }, [])
 
+  const cargarProximoHC = useCallback(() => {
+    api.get('/pacientes/proximo-historia').then(r => setProximoHC(r.data.proximo)).catch(() => {})
+  }, [])
+
   useEffect(() => {
     const t = setTimeout(() => buscar(busqueda), 300)
     return () => clearTimeout(t)
   }, [busqueda, buscar])
 
-  async function registroRapido(e) {
-    e.preventDefault()
+  useEffect(() => { cargarProximoHC() }, [cargarProximoHC])
+
+  function abrirRegistro() {
+    cargarProximoHC()
+    setModalNuevo(true)
+  }
+
+  async function abrirFicha(p) {
     try {
-      const { data } = await api.post('/pacientes/rapido', formRapido)
-      toast.success(data.ya_existia ? 'Paciente ya registrado' : 'Paciente registrado')
-      setModalRapido(false)
-      setFormRapido({ nombre: '', carnet: '' })
-      buscar(busqueda)
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Error al registrar')
+      const { data } = await api.get(`/pacientes/${p.id}`)
+      setModalFicha(data)
+    } catch {
+      setModalFicha(p)
     }
   }
 
@@ -47,12 +55,21 @@ export default function Pacientes() {
           <h2 className="text-2xl font-bold text-gray-800">Pacientes</h2>
           <p className="text-gray-500 text-sm mt-0.5">Registro y gestión de pacientes</p>
         </div>
-        <button
-          onClick={() => setModalRapido(true)}
-          className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl font-medium text-sm transition"
-        >
-          <UserPlus size={18} /> Registro Rápido
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={imprimirCalibracionHC}
+            title="Imprime una hoja de reglas (cm) para calibrar la impresión sobre el formulario"
+            className="flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 px-4 py-2.5 rounded-xl font-medium text-sm transition"
+          >
+            <Ruler size={17} /> Calibrar HC
+          </button>
+          <button
+            onClick={abrirRegistro}
+            className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl font-medium text-sm transition"
+          >
+            <UserPlus size={18} /> Nuevo Paciente
+          </button>
+        </div>
       </div>
 
       {/* Buscador */}
@@ -79,6 +96,7 @@ export default function Pacientes() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
               <tr>
+                <th className="px-6 py-3 text-left">HC N°</th>
                 <th className="px-6 py-3 text-left">Paciente</th>
                 <th className="px-6 py-3 text-left">Carnet</th>
                 <th className="px-6 py-3 text-left">Teléfono</th>
@@ -89,6 +107,11 @@ export default function Pacientes() {
             <tbody className="divide-y divide-gray-100">
               {pacientes.map(p => (
                 <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold font-mono">
+                      {p.nro_historia ?? '—'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 font-medium text-gray-800">{p.nombre}</td>
                   <td className="px-6 py-4 text-gray-600 font-mono">{p.carnet}</td>
                   <td className="px-6 py-4 text-gray-500">{p.telefono || '—'}</td>
@@ -105,7 +128,7 @@ export default function Pacientes() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button
-                      onClick={() => setModalFicha(p)}
+                      onClick={() => abrirFicha(p)}
                       className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium ml-auto"
                     >
                       Ver / Editar <ChevronRight size={16} />
@@ -118,46 +141,18 @@ export default function Pacientes() {
         )}
       </div>
 
-      {/* Modal registro rápido */}
-      <Modal open={modalRapido} onClose={() => setModalRapido(false)} title="Registro Rápido" size="sm">
-        <p className="text-gray-500 text-sm mb-5">
-          Solo nombre y carnet. La ficha completa se llena antes de la consulta.
-        </p>
-        <form onSubmit={registroRapido} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
-            <input
-              required value={formRapido.nombre}
-              onChange={e => setFormRapido(f => ({ ...f, nombre: e.target.value }))}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Juan Pérez"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Carnet / CI</label>
-            <input
-              required value={formRapido.carnet}
-              onChange={e => setFormRapido(f => ({ ...f, carnet: e.target.value }))}
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="1234567"
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => setModalRapido(false)}
-              className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
-              Cancelar
-            </button>
-            <button type="submit"
-              className="flex-1 bg-blue-700 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-800 transition">
-              Registrar
-            </button>
-          </div>
-        </form>
+      {/* Modal nuevo paciente (ficha completa) */}
+      <Modal open={modalNuevo} onClose={() => setModalNuevo(false)} title="Nuevo Paciente" size="xl">
+        <FichaCompletaForm
+          paciente={null}
+          proximoHC={proximoHC}
+          onGuardado={() => { setModalNuevo(false); buscar(busqueda); cargarProximoHC() }}
+        />
       </Modal>
 
-      {/* Modal ficha completa */}
+      {/* Modal ficha completa (editar) */}
       <Modal open={!!modalFicha} onClose={() => setModalFicha(null)}
-        title={`Ficha: ${modalFicha?.nombre}`} size="lg">
+        title={`Ficha: ${modalFicha?.nombre}`} size="xl">
         {modalFicha && (
           <FichaCompletaForm
             paciente={modalFicha}

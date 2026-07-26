@@ -59,17 +59,37 @@ cualquier texto largo, cada servidor firma sus propias sesiones.
 > clínicas/farmacias que se creen **nuevas** desde el panel de superadmin ya nacen
 > con ellos — esto es solo para las bases **restauradas** de estos backups.
 
-### En las 3 clínicas — tabla `cita_servicios`
+### En las 3 clínicas
 
-Permite registrar procedimientos/cirugías **con su precio** desde la cita (precio
-del catálogo, editable ahí mismo). Los procedimientos y cirugías así agendados
-pasan directo a caja.
+Incluye: tabla `cita_servicios` (registrar procedimientos/cirugías con precio desde
+la cita, editable; se cobran al registrar con método de pago), método de pago `qr`
+en los pagos, el N° de historia clínica correlativo automático por clínica
+(`pacientes.nro_historia`), y campos extra de la ficha del paciente (estado civil,
+y antecedentes SI/NO: alergias, DBT, HTA, RMTO).
 
 ```powershell
 $env:PGPASSWORD = "TU_CONTRASEÑA_DE_POSTGRES"
 $pg = "C:\Program Files\PostgreSQL\17\bin"
+$sql = @'
+CREATE TABLE IF NOT EXISTS cita_servicios (id SERIAL PRIMARY KEY, cita_id INTEGER NOT NULL REFERENCES citas(id) ON DELETE CASCADE, servicio_id INTEGER NOT NULL REFERENCES servicios(id), precio_cobrado NUMERIC(10,2) NOT NULL, notas TEXT);
+CREATE INDEX IF NOT EXISTS idx_cita_servicios_cita ON cita_servicios(cita_id);
+ALTER TABLE pagos DROP CONSTRAINT IF EXISTS pagos_metodo_pago_check;
+ALTER TABLE pagos ADD CONSTRAINT pagos_metodo_pago_check CHECK (metodo_pago IN ('efectivo','qr','transferencia','seguro','tarjeta'));
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS nro_historia INTEGER;
+CREATE SEQUENCE IF NOT EXISTS pacientes_nro_historia_seq OWNED BY pacientes.nro_historia;
+WITH ordered AS (SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM pacientes WHERE nro_historia IS NULL)
+UPDATE pacientes p SET nro_historia = o.rn FROM ordered o WHERE p.id = o.id;
+SELECT setval('pacientes_nro_historia_seq', COALESCE((SELECT MAX(nro_historia) FROM pacientes),0)+1, false);
+ALTER TABLE pacientes ALTER COLUMN nro_historia SET DEFAULT nextval('pacientes_nro_historia_seq');
+CREATE UNIQUE INDEX IF NOT EXISTS pacientes_nro_historia_key ON pacientes(nro_historia);
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS estado_civil VARCHAR(40);
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS tiene_alergias BOOLEAN;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS dbt BOOLEAN;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS hta BOOLEAN;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS rmto BOOLEAN;
+'@
 foreach ($db in "optica_clinica_1","optica_clinica_2","optica_clinica_3") {
-    & "$pg\psql.exe" -h localhost -U postgres -d $db -c "CREATE TABLE IF NOT EXISTS cita_servicios (id SERIAL PRIMARY KEY, cita_id INTEGER NOT NULL REFERENCES citas(id) ON DELETE CASCADE, servicio_id INTEGER NOT NULL REFERENCES servicios(id), precio_cobrado NUMERIC(10,2) NOT NULL, notas TEXT); CREATE INDEX IF NOT EXISTS idx_cita_servicios_cita ON cita_servicios(cita_id);"
+    $sql | & "$pg\psql.exe" -h localhost -U postgres -d $db -v ON_ERROR_STOP=1
 }
 ```
 
