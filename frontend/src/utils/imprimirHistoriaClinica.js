@@ -16,26 +16,27 @@ const PAGE = { w: 216, h: 279 } // Carta, mm
 const GLOBAL = { offsetX: 0, offsetY: 0 } // nudge global en mm
 
 // Posición (mm) donde arranca cada dato. size = alto de letra en mm.
+// Filas del formulario (calibrado con impresión real): ~52, 60, 68, 76, 84.
 const CAMPOS = {
   nro_historia: { x: 168, y: 26,  size: 5 },
-  fecha:        { x: 165, y: 55,  size: 3.2 }, // fecha de hoy (arriba a la derecha, junto a las barras)
-  nombre:       { x: 30,  y: 60,  size: 3.6 },
-  sexo:         { x: 26,  y: 70,  size: 3.2 },
-  edad:         { x: 48,  y: 70,  size: 3.2 },
-  fecha_nac:    { x: 82,  y: 70,  size: 3.2 },
-  estado_civil: { x: 163, y: 70,  size: 3.2 },
-  ocupacion:    { x: 24,  y: 78,  size: 3.2 },
-  telefono:     { x: 77,  y: 78,  size: 3.2 },
-  carnet:       { x: 150, y: 78,  size: 3.2 },
-  direccion:    { x: 34,  y: 85,  size: 3.2 },
+  fecha:        { x: 165, y: 52,  size: 3.2 }, // misma fila que Nombre (arriba a la derecha)
+  nombre:       { x: 30,  y: 52,  size: 3.6 },
+  sexo:         { x: 26,  y: 60,  size: 3.2 },
+  edad:         { x: 48,  y: 60,  size: 3.2 },
+  fecha_nac:    { x: 82,  y: 60,  size: 3.2 },
+  estado_civil: { x: 163, y: 60,  size: 3.2 },
+  ocupacion:    { x: 24,  y: 68,  size: 3.2 },
+  telefono:     { x: 77,  y: 68,  size: 3.2 },
+  carnet:       { x: 150, y: 68,  size: 3.2 },
+  direccion:    { x: 34,  y: 76,  size: 3.2 },
 }
 
 // Casillas SÍ / NO (centro de cada casilla, mm). Se marca una X.
 const MARCAS = {
-  alergias: { si: { x: 35, y: 91 }, no: { x: 44, y: 91 } },
-  dbt:      { si: { x: 80, y: 91 }, no: { x: 89, y: 91 } },
-  hta:      { si: { x: 133, y: 91 }, no: { x: 142, y: 91 } },
-  rmto:     { si: { x: 182, y: 91 }, no: { x: 191, y: 91 } },
+  alergias: { si: { x: 35, y: 84 }, no: { x: 44, y: 84 } },
+  dbt:      { si: { x: 80, y: 84 }, no: { x: 89, y: 84 } },
+  hta:      { si: { x: 133, y: 84 }, no: { x: 142, y: 84 } },
+  rmto:     { si: { x: 182, y: 84 }, no: { x: 191, y: 84 } },
 }
 
 function fmtFecha(d) {
