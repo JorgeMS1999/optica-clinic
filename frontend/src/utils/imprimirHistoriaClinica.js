@@ -19,16 +19,16 @@ const GLOBAL = { offsetX: 0, offsetY: 0 } // nudge global en mm
 // Filas del formulario (calibrado con impresión real): ~52, 60, 68, 76, 84.
 const CAMPOS = {
   nro_historia: { x: 168, y: 26,  size: 5 },
-  fecha:        { x: 165, y: 52,  size: 3.2 }, // misma fila que Nombre (arriba a la derecha)
-  nombre:       { x: 30,  y: 52,  size: 3.6 },
-  sexo:         { x: 26,  y: 60,  size: 3.2 },
-  edad:         { x: 48,  y: 60,  size: 3.2 },
-  fecha_nac:    { x: 82,  y: 60,  size: 3.2 },
-  estado_civil: { x: 163, y: 60,  size: 3.2 },
-  ocupacion:    { x: 24,  y: 68,  size: 3.2 },
-  telefono:     { x: 77,  y: 68,  size: 3.2 },
-  carnet:       { x: 150, y: 68,  size: 3.2 },
-  direccion:    { x: 34,  y: 76,  size: 3.2 },
+  fecha:        { x: 165, y: 52,  size: 4.2 }, // misma fila que Nombre (arriba a la derecha)
+  nombre:       { x: 30,  y: 52,  size: 4.6 },
+  sexo:         { x: 26,  y: 60,  size: 4.2 },
+  edad:         { x: 48,  y: 60,  size: 4.2 },
+  fecha_nac:    { x: 82,  y: 60,  size: 4.2 },
+  estado_civil: { x: 163, y: 60,  size: 4.2 },
+  ocupacion:    { x: 24,  y: 68,  size: 4.2 },
+  telefono:     { x: 77,  y: 68,  size: 4.2 },
+  carnet:       { x: 150, y: 68,  size: 4.2 },
+  direccion:    { x: 34,  y: 76,  size: 4.2 },
 }
 
 // Casillas SÍ / NO (centro de cada casilla, mm). Se marca una X.
@@ -112,7 +112,7 @@ export function imprimirHistoriaClinica(datos = {}, opts = {}) {
     html, body { background: #fff; }
     .hoja { position: relative; width: ${PAGE.w}mm; height: ${PAGE.h}mm; overflow: hidden; }
     .dato  { position: absolute; font-family: Arial, sans-serif; color: #000; white-space: nowrap; line-height: 1; }
-    .marca { position: absolute; font-family: Arial, sans-serif; color: #000; font-size: 3.6mm; font-weight: 700; transform: translate(-50%, -60%); }
+    .marca { position: absolute; font-family: Arial, sans-serif; color: #000; font-size: 4.6mm; font-weight: 700; transform: translate(-50%, -60%); }
     .grid  { position: absolute; top: 0; left: 0; }
     .guia  { position: absolute; font-family: Arial, sans-serif; font-size: 2.2mm; color: #ef4444; white-space: nowrap; }
     .aviso { font-family: Arial, sans-serif; font-size: 13px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; margin: 10px; }
