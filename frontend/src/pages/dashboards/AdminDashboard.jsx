@@ -27,9 +27,13 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800">Panel de Administración</h2>
-        <p className="text-gray-500 text-sm mt-1">Vista global del sistema</p>
+      <div className="flex items-center gap-4">
+        <img src="/fundacion-logo.png" alt="Fundación Luz de tu Visión"
+          className="w-16 h-16 rounded-full shrink-0 shadow-sm" />
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">Fundación Luz de tu Visión</h2>
+          <p className="text-gray-500 text-sm mt-1">Panel de administración — clínicas y farmacias</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

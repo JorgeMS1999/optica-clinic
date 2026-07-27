@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import {
   LayoutDashboard, Calendar, Users, UserCheck, ClipboardList,
   CreditCard, Package, BarChart2, LogOut,
-  Menu, X, ChevronDown, Eye, Building2, ShoppingBag, Truck, History,
+  Menu, X, ChevronDown, Building2, ShoppingBag, Truck, History,
   TrendingDown, ArrowLeft, Stethoscope
 } from 'lucide-react'
 
@@ -112,6 +112,11 @@ export default function Layout() {
   }
   const menu = MENUS[menuRol] || []
 
+  // Logo: fundación en el panel del superadmin; clínica cuando se opera un establecimiento
+  const logoSrc = (usuario?.rol === 'superadmin' && !enContexto)
+    ? '/fundacion-logo.png'
+    : '/clinica-logo.png'
+
   function handleLogout() {
     logout()
     toast.success('Sesión cerrada')
@@ -154,9 +159,9 @@ export default function Layout() {
         bg-blue-900 text-white flex flex-col transition-all duration-300 shrink-0
       `}>
         {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-5 border-b border-blue-800">
-          <div className="w-8 h-8 bg-cyan-400 rounded-lg flex items-center justify-center shrink-0">
-            <Eye size={18} className="text-blue-900" />
+        <div className="flex items-center gap-3 px-3 py-4 border-b border-blue-800">
+          <div className="w-10 h-10 bg-white rounded-full shrink-0 overflow-hidden flex items-center justify-center">
+            <img src={logoSrc} alt="Logo" className="w-full h-full object-cover" />
           </div>
           {sidebarOpen && (
             <span className="font-bold text-base leading-tight line-clamp-2">
