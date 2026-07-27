@@ -44,6 +44,7 @@ export default function SelectorServiciosCita({ servicios = [], value = [], onCh
       _precio_base:   parseFloat(srv.precio) || 0,
     }])
     setQ('')
+    setAbierto(false)   // cerrar el desplegable al elegir un servicio
   }
 
   function quitar(servicio_id) {
