@@ -91,7 +91,7 @@ router.get('/:id', async (req, res) => {
 })
 
 // Crear cita (con sus servicios/procedimientos planificados)
-router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora', 'doctor'), async (req, res) => {
+router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora'), async (req, res) => {
   const client = await db(req).getClient()
   try {
     await client.query('BEGIN')
@@ -187,7 +187,7 @@ router.patch('/:id/estado', requireRole('superadmin', 'admin_clinica', 'coordina
 })
 
 // Actualizar cita (y sus servicios/procedimientos planificados)
-router.put('/:id', requireRole('superadmin', 'admin_clinica', 'coordinadora', 'doctor'), async (req, res) => {
+router.put('/:id', requireRole('superadmin', 'admin_clinica', 'coordinadora'), async (req, res) => {
   const client = await db(req).getClient()
   try {
     await client.query('BEGIN')

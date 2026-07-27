@@ -56,7 +56,7 @@ router.get('/:id', async (req, res) => {
 })
 
 // Registro completo — todos los datos (formulario de historia clínica)
-router.post('/', async (req, res) => {
+router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora'), async (req, res) => {
   const bool = v => (v === true || v === false) ? v : null
   const client = await db(req).getClient()
   try {
@@ -116,7 +116,7 @@ router.post('/', async (req, res) => {
 })
 
 // Registro rápido — solo nombre y carnet (al llegar a la cita)
-router.post('/rapido', async (req, res) => {
+router.post('/rapido', requireRole('superadmin', 'admin_clinica', 'coordinadora'), async (req, res) => {
   try {
     const { nombre, carnet } = req.body
     if (!nombre?.trim() || !carnet?.trim()) {
@@ -140,7 +140,7 @@ router.post('/rapido', async (req, res) => {
 })
 
 // Completar / actualizar ficha completa del paciente
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireRole('superadmin', 'admin_clinica', 'coordinadora'), async (req, res) => {
   const bool = v => (v === true || v === false) ? v : null
   try {
     const {
