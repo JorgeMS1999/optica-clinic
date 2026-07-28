@@ -134,54 +134,59 @@ export default function Citas() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[880px]">
+          <table className="w-full text-sm min-w-[720px]">
             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
               <tr>
-                {verTodas && <th className="px-4 py-3 text-left">Fecha</th>}
-                <th className="px-4 py-3 text-left">Hora</th>
-                <th className="px-6 py-3 text-left">Paciente</th>
-                <th className="px-6 py-3 text-left">Doctor</th>
-                <th className="px-6 py-3 text-left">Tipo</th>
-                <th className="px-6 py-3 text-left">Estado</th>
-                <th className="px-6 py-3 text-left">Pago</th>
-                <th className="px-6 py-3 text-left">Acción</th>
+                {verTodas && <th className="px-3 py-3 text-left">Fecha</th>}
+                <th className="px-3 py-3 text-left">Hora</th>
+                <th className="px-3 py-3 text-left">Paciente</th>
+                <th className="px-3 py-3 text-left">Doctor</th>
+                <th className="px-3 py-3 text-left">Tipo</th>
+                <th className="px-3 py-3 text-left">Estado</th>
+                <th className="px-3 py-3 text-left">Pago</th>
+                <th className="px-3 py-3 text-left">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {citas.map(c => (
                 <tr key={c.id} className="hover:bg-gray-50">
                   {verTodas && (
-                    <td className="px-4 py-4 text-gray-600 whitespace-nowrap">{fmtFechaCorta(c.fecha)}</td>
+                    <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{fmtFechaCorta(c.fecha)}</td>
                   )}
-                  <td className="px-4 py-4 font-mono font-medium text-gray-800 whitespace-nowrap">{c.hora?.slice(0,5)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3 font-mono font-medium text-gray-800 whitespace-nowrap">{c.hora?.slice(0,5)}</td>
+                  <td className="px-3 py-3">
                     <p className="font-medium text-gray-800">{c.paciente_nombre}</p>
                     <p className="text-gray-400 text-xs">{c.carnet}</p>
                   </td>
-                  <td className="px-6 py-4 text-gray-600 whitespace-nowrap">{c.doctor_nombre}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-3 text-gray-600">{c.doctor_nombre}</td>
+                  <td className="px-3 py-3">
                     <Badge value={c.tipo} />
                     {c.servicios_nombres && (
-                      <p className="text-xs text-gray-500 mt-1 max-w-[200px]">{c.servicios_nombres}</p>
+                      <p className="text-xs text-gray-500 mt-1 max-w-[170px]">{c.servicios_nombres}</p>
                     )}
                   </td>
-                  <td className="px-6 py-4"><Badge value={c.estado} /></td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3"><Badge value={c.estado} /></td>
+                  <td className="px-3 py-3 whitespace-nowrap">
                     {c.pagado ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                        Pagado · Bs. {parseFloat(c.pago_total).toFixed(2)}
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                        Pagado
                       </span>
                     ) : parseFloat(c.total_servicios) > 0 ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                        Por cobrar · Bs. {parseFloat(c.total_servicios).toFixed(2)}
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                        Por cobrar
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-400">
-                        Sin cobro
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400">
+                        —
                       </span>
                     )}
+                    {(c.pagado || parseFloat(c.total_servicios) > 0) && (
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Bs. {parseFloat(c.pagado ? c.pago_total : c.total_servicios).toFixed(2)}
+                      </p>
+                    )}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
                       <select
                         value={c.estado}
