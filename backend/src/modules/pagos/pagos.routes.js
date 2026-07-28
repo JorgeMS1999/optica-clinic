@@ -169,6 +169,8 @@ router.get('/', async (req, res) => {
     if (fecha_hasta) { conditions.push(`DATE(pg.creado_en) <= $${i++}`); params.push(fecha_hasta) }
     if (metodo_pago) { conditions.push(`pg.metodo_pago = $${i++}`); params.push(metodo_pago) }
 
+    const limite = Math.min(parseInt(req.query.limit) || 200, 5000)
+
     const r = await db(req).query(
       `SELECT pg.*,
               p.nombre AS paciente_nombre, p.carnet,
@@ -178,7 +180,7 @@ router.get('/', async (req, res) => {
        JOIN pacientes p ON p.id = pg.paciente_id
        WHERE ${conditions.join(' AND ')}
        ORDER BY pg.creado_en DESC
-       LIMIT 200`,
+       LIMIT ${limite}`,
       params
     )
     res.json(r.rows)

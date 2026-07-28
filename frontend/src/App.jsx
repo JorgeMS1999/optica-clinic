@@ -47,6 +47,14 @@ function HomeRedirect() {
   return <Navigate to={ROL_HOME[usuario.rol] || '/login'} replace />
 }
 
+// Solo el Dr. Burgos (entre los doctores) puede ver reportes
+function SoloBurgos({ children }) {
+  const { usuario } = useAuth()
+  return usuario?.email?.toLowerCase().includes('burgos')
+    ? children
+    : <Navigate to="/doctor/dashboard" replace />
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -90,6 +98,7 @@ function AppRoutes() {
         <Route path="/doctor/dashboard"          element={<DoctorDashboard />} />
         <Route path="/doctor/pacientes"          element={<MisPacientes />} />
         <Route path="/doctor/consulta/:citaId"   element={<Consulta />} />
+        <Route path="/doctor/reportes"           element={<SoloBurgos><ReportesClinica /></SoloBurgos>} />
       </Route>
 
       {/* Cajero */}

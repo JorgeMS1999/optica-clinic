@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { BarChart2, DollarSign, Users, Activity, TrendingUp } from 'lucide-react'
+import { BarChart2, DollarSign, Users, Activity, TrendingUp, Download } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
+import { exportarExcel } from '../../utils/exportarExcel'
 
 function StatCard({ label, value, sub, color = 'blue' }) {
   const c = {
@@ -63,6 +64,34 @@ export default function ReportesClinica() {
 
   useEffect(() => { cargar() }, [cargar])
 
+  const [exportando, setExportando] = useState(false)
+  async function descargarExcel() {
+    setExportando(true)
+    try {
+      const { data: rows } = await api.get(
+        `/pagos?fecha_desde=${fechaDesde}&fecha_hasta=${fechaHasta}&limit=5000`
+      )
+      if (!rows.length) { toast('No hay registros en el período'); return }
+      const encabezados = ['Fecha', 'Hora', 'Paciente', 'Carnet', 'Tipo', 'Método de pago', 'Descuento (Bs)', 'Total (Bs)']
+      const filas = rows.map(r => [
+        new Date(r.creado_en).toLocaleDateString('es'),
+        r.cita_hora ? String(r.cita_hora).slice(0, 5) : '',
+        r.paciente_nombre,
+        r.carnet || '',
+        r.cita_tipo || '',
+        r.metodo_pago,
+        parseFloat(r.descuento_monto || 0).toFixed(2),
+        parseFloat(r.total).toFixed(2),
+      ])
+      exportarExcel(`reporte_${fechaDesde}_a_${fechaHasta}`, encabezados, filas)
+      toast.success(`${rows.length} registros descargados`)
+    } catch {
+      toast.error('Error al exportar')
+    } finally {
+      setExportando(false)
+    }
+  }
+
   const maxServicio = data ? Math.max(...data.por_servicio.map(s => parseFloat(s.total)), 1) : 1
   const maxDoctor   = data ? Math.max(...data.por_doctor.map(d => parseInt(d.atenciones)), 1) : 1
   const totalCitas  = data ? data.por_estado.reduce((s, e) => s + parseInt(e.cantidad), 0) : 0
@@ -89,6 +118,11 @@ export default function ReportesClinica() {
         <button onClick={cargar} disabled={loading}
           className="px-5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-sm font-medium transition">
           {loading ? 'Cargando...' : 'Actualizar'}
+        </button>
+        <button onClick={descargarExcel} disabled={exportando}
+          className="flex items-center gap-2 px-5 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl text-sm font-medium transition ml-auto">
+          <Download size={16} />
+          {exportando ? 'Generando...' : 'Descargar Excel'}
         </button>
       </div>
 

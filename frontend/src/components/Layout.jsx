@@ -110,7 +110,11 @@ export default function Layout() {
   if (usuario?.rol === 'cajero' && usuario.farmacia_db) {
     menuRol = 'cajero_farmacia'
   }
-  const menu = MENUS[menuRol] || []
+  let menu = MENUS[menuRol] || []
+  // Solo el Dr. Burgos (entre los doctores) tiene acceso a Reportes
+  if (usuario?.rol === 'doctor' && usuario?.email?.toLowerCase().includes('burgos')) {
+    menu = [...menu, { label: 'Reportes', icon: BarChart2, to: '/doctor/reportes' }]
+  }
 
   // Logo: fundación en el panel del superadmin; clínica cuando se opera un establecimiento
   const logoSrc = (usuario?.rol === 'superadmin' && !enContexto)
