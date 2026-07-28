@@ -195,7 +195,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     }
   }
 
-  function handleImprimir() {
+  function handleImprimir(formato = 'ticket') {
     imprimirTicketCita({
       clinica,
       pago:            comprobante.pago,
@@ -210,12 +210,12 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
       metodo_pago:     comprobante.metodo_pago,
       referencia:      comprobante.referencia,
       cajeroNombre:    usuario?.nombre,
-    })
+    }, { formato })
   }
 
   // Imprimir el comprobante de la cita. Si tiene cobro registrado usa esos datos;
   // si no, imprime igual con los servicios de la cita.
-  async function handleReimprimir() {
+  async function handleReimprimir(formato = 'ticket') {
     let data = null
     try { const r = await api.get(`/pagos/cita/${cita.id}`); data = r.data } catch { /* sin pago */ }
 
@@ -239,7 +239,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         metodo_pago:     pg.metodo_pago,
         referencia:      pg.referencia,
         cajeroNombre:    usuario?.nombre,
-      })
+      }, { formato })
     } else {
       // Sin cobro: imprimir con los servicios de la cita
       imprimirTicketCita({
@@ -256,7 +256,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         metodo_pago:     '',
         referencia:      '',
         cajeroNombre:    usuario?.nombre,
-      })
+      }, { formato })
     }
   }
 
@@ -299,13 +299,19 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
           </p>
         </div>
 
-        <div className="flex gap-3 w-full">
-          <button onClick={handleImprimir}
-            className="flex-1 flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-xl font-semibold text-sm transition">
-            <Printer size={18} /> Imprimir comprobante
-          </button>
+        <div className="w-full space-y-2">
+          <div className="flex gap-2">
+            <button onClick={() => handleImprimir('ticket')}
+              className="flex-1 flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-xl font-semibold text-sm transition">
+              <Printer size={16} /> Imprimir ticket
+            </button>
+            <button onClick={() => handleImprimir('carta')}
+              className="flex-1 flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-xl font-semibold text-sm transition">
+              <Printer size={16} /> Imprimir Carta
+            </button>
+          </div>
           <button onClick={onGuardada}
-            className="flex-1 border border-gray-300 hover:bg-gray-50 text-gray-700 py-3 rounded-xl font-semibold text-sm transition">
+            className="w-full border border-gray-300 hover:bg-gray-50 text-gray-700 py-3 rounded-xl font-semibold text-sm transition">
             Listo
           </button>
         </div>
@@ -538,10 +544,16 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
             : 'Sin servicios registrados'}
         </div>
         {editando && (
-          <button type="button" onClick={handleReimprimir}
-            className="flex items-center gap-2 border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-3 rounded-xl font-semibold text-sm transition">
-            <Printer size={16} /> Imprimir
-          </button>
+          <>
+            <button type="button" onClick={() => handleReimprimir('ticket')}
+              className="flex items-center gap-2 border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-3 rounded-xl font-semibold text-sm transition">
+              <Printer size={16} /> Ticket
+            </button>
+            <button type="button" onClick={() => handleReimprimir('carta')}
+              className="flex items-center gap-2 border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-3 rounded-xl font-semibold text-sm transition">
+              <Printer size={16} /> Carta
+            </button>
+          </>
         )}
         <button type="submit" disabled={loading}
           className={`text-white px-8 py-3 rounded-xl font-semibold text-sm transition shadow-sm disabled:opacity-60
