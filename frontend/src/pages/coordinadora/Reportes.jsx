@@ -157,6 +157,26 @@ export default function ReportesClinica() {
             <StatCard label="Descuentos aplicados"   value={`Bs. ${parseFloat(data.summary.total_descuentos).toFixed(2)}`} color="amber" />
           </div>
 
+          {/* Montos por cobrar (citas agendadas sin pago) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-amber-700">Monto por cobrar</p>
+                <p className="text-3xl font-bold text-amber-700 mt-1">Bs. {parseFloat(data.extra?.monto_por_cobrar || 0).toFixed(2)}</p>
+                <p className="text-xs text-amber-600/70 mt-1">Servicios agendados aún sin pagar</p>
+              </div>
+              <DollarSign size={40} className="text-amber-400" />
+            </div>
+            <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-orange-700">Citas por cobrar</p>
+                <p className="text-3xl font-bold text-orange-700 mt-1">{data.extra?.citas_por_cobrar ?? 0}</p>
+                <p className="text-xs text-orange-600/70 mt-1">Agendadas sin registrar pago</p>
+              </div>
+              <ClipboardList size={40} className="text-orange-400" />
+            </div>
+          </div>
+
           {/* Citas por tipo */}
           <div className="bg-white rounded-2xl shadow-sm p-5">
             <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">

@@ -24,10 +24,10 @@ const TIPOS = [
 ]
 
 const METODOS_PAGO = [
-  { key: 'efectivo',      label: 'Efectivo' },
-  { key: 'qr',            label: 'QR' },
-  { key: 'transferencia', label: 'Transf.' },
-  { key: 'seguro',        label: 'Seguro' },
+  { key: 'efectivo', label: 'Efectivo' },
+  { key: 'qr',       label: 'QR' },
+  { key: 'seguro',   label: 'Seguro' },
+  { key: 'no_pago',  label: 'No pago' },
 ]
 
 const LABEL = 'block text-sm font-medium text-gray-700 mb-1.5'
@@ -137,7 +137,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     if (!form.paciente_id) return toast.error('Selecciona un paciente')
     if (!form.doctor_id)   return toast.error('Selecciona un doctor')
 
-    const cobra = !editando && totalServicios > 0
+    const cobra = !editando && totalServicios > 0 && metodoPago !== 'no_pago'
 
     const payload = {
       ...form,
@@ -187,7 +187,11 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         })
         toast.success(`Cita registrada y cobrada — Bs. ${totalCobrar.toFixed(2)}`)
       } else {
-        toast.success('Cita programada correctamente')
+        toast.success(
+          metodoPago === 'no_pago' && totalServicios > 0
+            ? `Cita agendada — queda por cobrar Bs. ${totalServicios.toFixed(2)}`
+            : 'Cita programada correctamente'
+        )
         onGuardada()
       }
     } catch (err) {
@@ -466,31 +470,43 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
                 </div>
               </div>
 
-              {['qr','transferencia','seguro'].includes(metodoPago) && (
+              {['qr','seguro'].includes(metodoPago) && (
                 <input type="text" value={referenciaPago}
                   onChange={e => setReferenciaPago(e.target.value)}
                   placeholder={metodoPago === 'seguro' ? 'Nro. póliza / autorización' : 'Nro. de comprobante / referencia'}
                   className={INPUT} />
               )}
 
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-gray-500">Descuento Bs.</span>
-                  <span className="text-xs text-gray-400">−</span>
-                  <input type="number" min="0" step="1" value={descuentoBs}
-                    onChange={e => setDescuentoBs(e.target.value)}
-                    placeholder="0"
-                    className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              {metodoPago === 'no_pago' ? (
+                <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                  <span className="text-xs text-amber-700 font-medium">Se agenda sin cobrar — queda pendiente en caja</span>
+                  <div className="text-right">
+                    <p className="text-[11px] text-amber-600">Por cobrar</p>
+                    <p className="text-lg font-bold text-amber-700">Bs. {totalServicios.toFixed(2)}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-[11px] text-gray-400">Total a cobrar</p>
-                  <p className="text-lg font-bold text-green-600">Bs. {totalCobrar.toFixed(2)}</p>
-                </div>
-              </div>
-              {descuentoMonto > 0 && (
-                <p className="text-[11px] text-gray-400 text-right -mt-1">
-                  {totalServicios.toFixed(2)} − {descuentoMonto.toFixed(2)} de descuento
-                </p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-500">Descuento Bs.</span>
+                      <span className="text-xs text-gray-400">−</span>
+                      <input type="number" min="0" step="1" value={descuentoBs}
+                        onChange={e => setDescuentoBs(e.target.value)}
+                        placeholder="0"
+                        className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[11px] text-gray-400">Total a cobrar</p>
+                      <p className="text-lg font-bold text-green-600">Bs. {totalCobrar.toFixed(2)}</p>
+                    </div>
+                  </div>
+                  {descuentoMonto > 0 && (
+                    <p className="text-[11px] text-gray-400 text-right -mt-1">
+                      {totalServicios.toFixed(2)} − {descuentoMonto.toFixed(2)} de descuento
+                    </p>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -535,13 +551,15 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         )}
         <button type="submit" disabled={loading}
           className={`text-white px-8 py-3 rounded-xl font-semibold text-sm transition shadow-sm disabled:opacity-60
-            ${!editando && totalServicios > 0 ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-700 hover:bg-blue-800'}`}>
+            ${!editando && totalServicios > 0 && metodoPago !== 'no_pago' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-700 hover:bg-blue-800'}`}>
           {loading
             ? 'Guardando...'
             : editando
               ? 'Guardar cambios'
               : totalServicios > 0
-                ? `Cobrar Bs. ${totalCobrar.toFixed(2)}`
+                ? (metodoPago === 'no_pago'
+                    ? `Agendar sin pago (Bs. ${totalServicios.toFixed(2)} por cobrar)`
+                    : `Cobrar Bs. ${totalCobrar.toFixed(2)}`)
                 : 'Programar Cita'}
         </button>
       </div>

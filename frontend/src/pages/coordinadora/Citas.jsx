@@ -134,7 +134,7 @@ export default function Citas() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[760px]">
+          <table className="w-full text-sm min-w-[880px]">
             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
               <tr>
                 {verTodas && <th className="px-4 py-3 text-left">Fecha</th>}
@@ -143,6 +143,7 @@ export default function Citas() {
                 <th className="px-6 py-3 text-left">Doctor</th>
                 <th className="px-6 py-3 text-left">Tipo</th>
                 <th className="px-6 py-3 text-left">Estado</th>
+                <th className="px-6 py-3 text-left">Pago</th>
                 <th className="px-6 py-3 text-left">Acción</th>
               </tr>
             </thead>
@@ -160,6 +161,21 @@ export default function Citas() {
                   <td className="px-6 py-4 text-gray-600 whitespace-nowrap">{c.doctor_nombre}</td>
                   <td className="px-6 py-4"><Badge value={c.tipo} /></td>
                   <td className="px-6 py-4"><Badge value={c.estado} /></td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {c.pagado ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                        Pagado · Bs. {parseFloat(c.pago_total).toFixed(2)}
+                      </span>
+                    ) : parseFloat(c.total_servicios) > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                        Por cobrar · Bs. {parseFloat(c.total_servicios).toFixed(2)}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-400">
+                        Sin cobro
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <select

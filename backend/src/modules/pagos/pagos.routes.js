@@ -163,13 +163,26 @@ router.get('/reporte', async (req, res) => {
          GROUP BY TRIM(diagnostico) ORDER BY cantidad DESC LIMIT 10`,
         [desde, hasta]
       ),
-      // Contadores extra: consultas registradas y pacientes nuevos
+      // Contadores extra: consultas registradas, pacientes nuevos y montos por cobrar
       db(req).query(
         `SELECT
            (SELECT COUNT(*) FROM consultas WHERE DATE(fecha) BETWEEN $1 AND $2)        AS total_consultas,
            (SELECT COUNT(*) FROM pacientes WHERE DATE(creado_en) BETWEEN $1 AND $2)    AS pacientes_nuevos,
            (SELECT COUNT(*) FROM citas WHERE fecha BETWEEN $1 AND $2)                  AS total_citas,
-           (SELECT COUNT(*) FROM citas WHERE estado='atendida' AND fecha BETWEEN $1 AND $2) AS citas_atendidas`,
+           (SELECT COUNT(*) FROM citas WHERE estado='atendida' AND fecha BETWEEN $1 AND $2) AS citas_atendidas,
+           (SELECT COUNT(*) FROM citas c
+              WHERE c.fecha BETWEEN $1 AND $2
+                AND c.estado NOT IN ('cancelada','no_asistio')
+                AND EXISTS (SELECT 1 FROM cita_servicios cs WHERE cs.cita_id = c.id)
+                AND NOT EXISTS (SELECT 1 FROM pagos pg WHERE pg.cita_id = c.id AND pg.estado='pagado')
+           ) AS citas_por_cobrar,
+           (SELECT COALESCE(SUM(cs.precio_cobrado),0)
+              FROM cita_servicios cs
+              JOIN citas c ON c.id = cs.cita_id
+              WHERE c.fecha BETWEEN $1 AND $2
+                AND c.estado NOT IN ('cancelada','no_asistio')
+                AND NOT EXISTS (SELECT 1 FROM pagos pg WHERE pg.cita_id = c.id AND pg.estado='pagado')
+           ) AS monto_por_cobrar`,
         [desde, hasta]
       ),
     ])

@@ -28,10 +28,22 @@ router.get('/', async (req, res) => {
     const r = await db(req).query(
       `SELECT c.*,
               p.nombre  AS paciente_nombre, p.carnet,
-              d.nombre  AS doctor_nombre
+              d.nombre  AS doctor_nombre,
+              (pg.id IS NOT NULL)              AS pagado,
+              COALESCE(pg.total, 0)            AS pago_total,
+              COALESCE(srv.total_servicios, 0) AS total_servicios
        FROM citas c
        JOIN pacientes p ON p.id = c.paciente_id
        JOIN doctores  d ON d.id = c.doctor_id
+       LEFT JOIN LATERAL (
+         SELECT id, total FROM pagos
+         WHERE cita_id = c.id AND estado = 'pagado'
+         ORDER BY id DESC LIMIT 1
+       ) pg ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT COALESCE(SUM(precio_cobrado), 0) AS total_servicios
+         FROM cita_servicios WHERE cita_id = c.id
+       ) srv ON TRUE
        ${where}
        ORDER BY c.fecha, c.hora`,
       params
