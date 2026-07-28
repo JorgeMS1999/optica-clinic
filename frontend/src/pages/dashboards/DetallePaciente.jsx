@@ -4,12 +4,22 @@ import api from '../../services/api'
 import Badge from '../../components/ui/Badge'
 
 function Fila({ label, value }) {
-  if (!value) return null
+  if (value == null || value === '') return null
   return (
-    <div className="flex gap-2">
-      <span className="text-gray-400 text-sm w-40 shrink-0">{label}</span>
-      <span className="text-gray-800 text-sm font-medium">{value}</span>
+    <div className="flex flex-col sm:flex-row sm:gap-2">
+      <span className="text-gray-400 text-sm sm:w-36 shrink-0">{label}</span>
+      <span className="text-gray-800 text-sm font-medium break-words">{value}</span>
     </div>
+  )
+}
+
+// Chip SÍ/NO para antecedentes
+function ChipSiNo({ label, value }) {
+  if (value !== true && value !== false) return null
+  return (
+    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${value ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+      {label}: {value ? 'SÍ' : 'NO'}
+    </span>
   )
 }
 
@@ -31,11 +41,22 @@ export default function DetallePaciente({ cita }) {
       {/* Datos básicos */}
       <div>
         <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Datos del paciente</h4>
+        {cita.nro_historia != null && (
+          <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2 mb-2">
+            <span className="text-sm text-blue-700 font-medium">Historia Clínica</span>
+            <span className="text-lg font-bold text-blue-700 font-mono">N° {cita.nro_historia}</span>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-gray-50 rounded-xl p-4">
           <Fila label="CI / Carnet"    value={cita.carnet} />
           <Fila label="Edad"           value={edad ? `${edad} años` : null} />
           <Fila label="Sexo"           value={cita.sexo === 'M' ? 'Masculino' : cita.sexo === 'F' ? 'Femenino' : null} />
+          <Fila label="Estado civil"   value={cita.estado_civil} />
+          <Fila label="Ocupación"      value={cita.ocupacion} />
           <Fila label="Teléfono"       value={cita.telefono} />
+          <Fila label="Teléfono alt."  value={cita.telefono_alt} />
+          <Fila label="Correo"         value={cita.email} />
+          <Fila label="Dirección"      value={cita.direccion} />
         </div>
       </div>
 
@@ -56,28 +77,43 @@ export default function DetallePaciente({ cita }) {
       </div>
 
       {/* Antecedentes médicos */}
-      {(cita.antecedentes_oculares || cita.alergias || cita.medicamentos_actuales) && (
+      {(cita.antecedentes_oculares || cita.antecedentes_familiares || cita.alergias || cita.medicamentos_actuales ||
+        cita.tiene_alergias != null || cita.dbt != null || cita.hta != null || cita.rmto != null) && (
         <div>
           <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
             <ClipboardList size={14} /> Antecedentes
           </h4>
-          <div className="space-y-2 bg-amber-50 border border-amber-100 rounded-xl p-4">
+          <div className="space-y-3 bg-amber-50 border border-amber-100 rounded-xl p-4">
+            {(cita.tiene_alergias != null || cita.dbt != null || cita.hta != null || cita.rmto != null) && (
+              <div className="flex flex-wrap gap-2">
+                <ChipSiNo label="Alergias" value={cita.tiene_alergias} />
+                <ChipSiNo label="DBT"      value={cita.dbt} />
+                <ChipSiNo label="HTA"      value={cita.hta} />
+                <ChipSiNo label="RMTO"     value={cita.rmto} />
+              </div>
+            )}
             {cita.antecedentes_oculares && (
               <div>
                 <p className="text-xs text-amber-600 font-medium">Antecedentes oculares</p>
-                <p className="text-sm text-gray-700">{cita.antecedentes_oculares}</p>
+                <p className="text-sm text-gray-700 break-words">{cita.antecedentes_oculares}</p>
+              </div>
+            )}
+            {cita.antecedentes_familiares && (
+              <div>
+                <p className="text-xs text-amber-600 font-medium">Antecedentes familiares</p>
+                <p className="text-sm text-gray-700 break-words">{cita.antecedentes_familiares}</p>
               </div>
             )}
             {cita.alergias && (
               <div>
-                <p className="text-xs text-red-500 font-medium">Alergias</p>
-                <p className="text-sm text-gray-700">{cita.alergias}</p>
+                <p className="text-xs text-red-500 font-medium">Alergias (detalle)</p>
+                <p className="text-sm text-gray-700 break-words">{cita.alergias}</p>
               </div>
             )}
             {cita.medicamentos_actuales && (
               <div>
                 <p className="text-xs text-amber-600 font-medium">Medicamentos actuales</p>
-                <p className="text-sm text-gray-700">{cita.medicamentos_actuales}</p>
+                <p className="text-sm text-gray-700 break-words">{cita.medicamentos_actuales}</p>
               </div>
             )}
           </div>

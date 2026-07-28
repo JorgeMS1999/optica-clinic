@@ -156,42 +156,39 @@ export default function DoctorDashboard() {
         ) : (
           citas.map((c, idx) => (
             <div key={c.id}
-              className={`bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 border-l-4 transition
+              className={`bg-white rounded-2xl shadow-sm p-4 sm:p-5 border-l-4 transition
+                flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4
                 ${c.estado === 'atendida'    ? 'border-green-400 opacity-70' :
                   c.estado === 'en_consulta' ? 'border-purple-500' :
                   c.estado === 'en_espera'   ? 'border-yellow-400' :
                   c.estado === 'no_asistio'  ? 'border-gray-300 opacity-50' :
                   'border-blue-400'}`}
             >
-              {/* Número y hora */}
-              <div className="text-center shrink-0 w-12">
-                <p className="text-2xl font-bold text-gray-300">#{idx + 1}</p>
-                <p className="text-xs font-mono text-gray-500 mt-0.5">{c.hora?.slice(0,5)}</p>
-              </div>
-
-              {/* Info paciente */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-gray-800 truncate">{c.paciente_nombre}</p>
-                  <Badge value={c.tipo} />
-                  {!c.registrado_completo && (
-                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
-                      Ficha incompleta
-                    </span>
-                  )}
+              {/* Número/hora + info paciente */}
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className="text-center shrink-0 w-11">
+                  <p className="text-2xl font-bold text-gray-300">#{idx + 1}</p>
+                  <p className="text-xs font-mono text-gray-500 mt-0.5">{c.hora?.slice(0,5)}</p>
                 </div>
-                <p className="text-gray-400 text-xs mt-0.5">CI: {c.carnet} {c.telefono ? `• ${c.telefono}` : ''}</p>
-                {c.motivo && <p className="text-gray-500 text-sm mt-1 truncate">"{c.motivo}"</p>}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-gray-800 break-words">{c.paciente_nombre}</p>
+                    <Badge value={c.tipo} />
+                    {!c.registrado_completo && (
+                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
+                        Ficha incompleta
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-400 text-xs mt-0.5">CI: {c.carnet} {c.telefono ? `• ${c.telefono}` : ''}</p>
+                  {c.motivo && <p className="text-gray-500 text-sm mt-1">"{c.motivo}"</p>}
+                </div>
               </div>
 
-              {/* Estado */}
-              <div className="shrink-0">
+              {/* Estado + acciones */}
+              <div className="flex items-center gap-2 flex-wrap pl-14 sm:pl-0 sm:shrink-0 sm:justify-end">
                 <Badge value={c.estado} />
-              </div>
 
-              {/* Acciones */}
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Ver detalle del paciente */}
                 <button
                   onClick={() => setDetalle(c)}
                   className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition"
@@ -200,7 +197,6 @@ export default function DoctorDashboard() {
                   <Eye size={18} />
                 </button>
 
-                {/* Ver / abrir consulta */}
                 {(c.estado === 'en_consulta' || c.estado === 'atendida') && (
                   <button
                     onClick={() => navigate(`/doctor/consulta/${c.id}`)}
@@ -214,7 +210,6 @@ export default function DoctorDashboard() {
                   </button>
                 )}
 
-                {/* Llamar / Iniciar */}
                 {(c.estado === 'programada' || c.estado === 'confirmada' || c.estado === 'en_espera') && (
                   <button
                     onClick={() => avanzarEstado(c)}
@@ -227,7 +222,6 @@ export default function DoctorDashboard() {
                   </button>
                 )}
 
-                {/* No asistió */}
                 {['programada','confirmada','en_espera'].includes(c.estado) && (
                   <button
                     onClick={() => marcarNoAsistio(c.id)}

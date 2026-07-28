@@ -48,9 +48,10 @@ router.get('/mi-agenda', async (req, res) => {
 
     const r = await db(req).query(
       `SELECT c.*,
-              p.nombre AS paciente_nombre, p.carnet, p.telefono,
-              p.fecha_nacimiento, p.sexo, p.registrado_completo,
-              p.antecedentes_oculares, p.alergias, p.medicamentos_actuales
+              p.nombre AS paciente_nombre, p.carnet, p.nro_historia, p.telefono, p.telefono_alt,
+              p.fecha_nacimiento, p.sexo, p.estado_civil, p.ocupacion, p.direccion, p.email,
+              p.registrado_completo, p.tiene_alergias, p.dbt, p.hta, p.rmto,
+              p.antecedentes_oculares, p.antecedentes_familiares, p.alergias, p.medicamentos_actuales
        FROM citas c
        JOIN pacientes p ON p.id = c.paciente_id
        WHERE c.doctor_id = $1 AND c.fecha = $2
