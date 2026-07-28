@@ -75,7 +75,10 @@ router.get('/reporte', async (req, res) => {
     const desde = fecha_desde || new Date().toLocaleDateString('en-CA')
     const hasta  = fecha_hasta  || desde
 
-    const [summary, por_servicio, por_doctor, por_estado, por_metodo] = await Promise.all([
+    const [
+      summary, por_servicio, por_doctor, por_estado, por_metodo,
+      por_tipo, por_categoria, por_sexo, top_diagnosticos, extra
+    ] = await Promise.all([
       db(req).query(
         `SELECT COUNT(*) AS total_pagos,
                 COALESCE(SUM(total), 0)           AS total_ingresos,
@@ -120,14 +123,68 @@ router.get('/reporte', async (req, res) => {
          GROUP BY metodo_pago ORDER BY total DESC`,
         [desde, hasta]
       ),
+      // Citas por tipo (consulta / procedimiento / cirugía)
+      db(req).query(
+        `SELECT tipo,
+                COUNT(*) AS cantidad,
+                COUNT(*) FILTER (WHERE estado='atendida') AS atendidas
+         FROM citas WHERE fecha BETWEEN $1 AND $2
+         GROUP BY tipo ORDER BY cantidad DESC`,
+        [desde, hasta]
+      ),
+      // Servicios/exámenes cobrados agrupados por categoría
+      db(req).query(
+        `SELECT cs.nombre AS categoria,
+                COUNT(*) AS cantidad,
+                COALESCE(SUM(dp.subtotal),0) AS total
+         FROM detalle_pago dp
+         JOIN servicios s ON s.id = dp.servicio_id
+         JOIN categorias_servicio cs ON cs.id = s.categoria_id
+         JOIN pagos p ON p.id = dp.pago_id
+         WHERE p.estado='pagado' AND DATE(p.creado_en) BETWEEN $1 AND $2
+         GROUP BY cs.nombre ORDER BY total DESC`,
+        [desde, hasta]
+      ),
+      // Pacientes atendidos por sexo
+      db(req).query(
+        `SELECT p.sexo, COUNT(DISTINCT p.id) AS cantidad
+         FROM pacientes p
+         JOIN citas c ON c.paciente_id = p.id
+         WHERE c.estado='atendida' AND c.fecha BETWEEN $1 AND $2
+         GROUP BY p.sexo`,
+        [desde, hasta]
+      ),
+      // Diagnósticos más frecuentes (de las consultas registradas)
+      db(req).query(
+        `SELECT TRIM(diagnostico) AS diagnostico, COUNT(*) AS cantidad
+         FROM consultas
+         WHERE DATE(fecha) BETWEEN $1 AND $2
+           AND diagnostico IS NOT NULL AND TRIM(diagnostico) <> ''
+         GROUP BY TRIM(diagnostico) ORDER BY cantidad DESC LIMIT 10`,
+        [desde, hasta]
+      ),
+      // Contadores extra: consultas registradas y pacientes nuevos
+      db(req).query(
+        `SELECT
+           (SELECT COUNT(*) FROM consultas WHERE DATE(fecha) BETWEEN $1 AND $2)        AS total_consultas,
+           (SELECT COUNT(*) FROM pacientes WHERE DATE(creado_en) BETWEEN $1 AND $2)    AS pacientes_nuevos,
+           (SELECT COUNT(*) FROM citas WHERE fecha BETWEEN $1 AND $2)                  AS total_citas,
+           (SELECT COUNT(*) FROM citas WHERE estado='atendida' AND fecha BETWEEN $1 AND $2) AS citas_atendidas`,
+        [desde, hasta]
+      ),
     ])
 
     res.json({
-      summary:     summary.rows[0],
+      summary:      summary.rows[0],
       por_servicio: por_servicio.rows,
       por_doctor:   por_doctor.rows,
       por_estado:   por_estado.rows,
       por_metodo:   por_metodo.rows,
+      por_tipo:         por_tipo.rows,
+      por_categoria:    por_categoria.rows,
+      por_sexo:         por_sexo.rows,
+      top_diagnosticos: top_diagnosticos.rows,
+      extra:            extra.rows[0],
     })
   } catch (err) { res.status(400).json({ error: err.message }) }
 })
