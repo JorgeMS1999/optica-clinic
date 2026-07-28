@@ -187,6 +187,32 @@ router.get('/', async (req, res) => {
   }
 })
 
+// Comprobante de una cita (para reimprimir desde la lista/edición)
+router.get('/cita/:citaId', async (req, res) => {
+  try {
+    const r = await db(req).query(
+      `SELECT pg.*, p.nombre AS paciente_nombre, p.carnet, p.nro_historia,
+              c.fecha AS cita_fecha, c.hora AS cita_hora, d.nombre AS doctor_nombre
+       FROM pagos pg
+       JOIN citas c ON c.id = pg.cita_id
+       JOIN pacientes p ON p.id = pg.paciente_id
+       JOIN doctores d ON d.id = c.doctor_id
+       WHERE pg.cita_id = $1 AND pg.estado != 'anulado'
+       ORDER BY pg.id DESC LIMIT 1`,
+      [req.params.citaId]
+    )
+    if (!r.rows[0]) return res.json(null)
+    const pago = r.rows[0]
+    const det = await db(req).query(
+      `SELECT dp.*, s.nombre AS servicio_nombre
+       FROM detalle_pago dp JOIN servicios s ON s.id = dp.servicio_id
+       WHERE dp.pago_id = $1`,
+      [pago.id]
+    )
+    res.json({ pago, detalle: det.rows })
+  } catch (err) { res.status(400).json({ error: err.message }) }
+})
+
 // Detalle de un pago (con sus servicios)
 router.get('/:id', async (req, res) => {
   try {

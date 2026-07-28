@@ -205,6 +205,34 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     })
   }
 
+  // Reimprimir el comprobante de una cita ya cobrada (modo edición)
+  async function handleReimprimir() {
+    try {
+      const { data } = await api.get(`/pagos/cita/${cita.id}`)
+      if (!data || !data.pago) {
+        return toast.error('Esta cita no tiene un cobro registrado para imprimir')
+      }
+      const pg = data.pago
+      imprimirTicketCita({
+        clinica,
+        pago: pg,
+        paciente:     { nombre: pg.paciente_nombre, carnet: pg.carnet, nro_historia: pg.nro_historia },
+        doctorNombre: pg.doctor_nombre,
+        fecha:        (pg.cita_fecha || '').split('T')[0],
+        hora:         pg.cita_hora,
+        servicios:    data.detalle.map(d => ({ nombre: d.servicio_nombre, precio: parseFloat(d.precio_unitario) || 0 })),
+        subtotal:        parseFloat(pg.subtotal) || 0,
+        descuento_monto: parseFloat(pg.descuento_monto) || 0,
+        total:           parseFloat(pg.total) || 0,
+        metodo_pago:     pg.metodo_pago,
+        referencia:      pg.referencia,
+        cajeroNombre:    usuario?.nombre,
+      })
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'No se pudo imprimir el comprobante')
+    }
+  }
+
   // Pantalla de confirmación con opción de imprimir (tras cobrar)
   if (comprobante) {
     return (
@@ -475,6 +503,12 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
             ? `${selServicios.length} servicio(s) · Bs. ${selServicios.reduce((s, l) => s + (parseFloat(l.precio_cobrado) || 0), 0).toFixed(2)}`
             : 'Sin servicios registrados'}
         </div>
+        {editando && (
+          <button type="button" onClick={handleReimprimir}
+            className="flex items-center gap-2 border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-3 rounded-xl font-semibold text-sm transition">
+            <Printer size={16} /> Imprimir
+          </button>
+        )}
         <button type="submit" disabled={loading}
           className={`text-white px-8 py-3 rounded-xl font-semibold text-sm transition shadow-sm disabled:opacity-60
             ${!editando && totalServicios > 0 ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-700 hover:bg-blue-800'}`}>
