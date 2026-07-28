@@ -100,23 +100,23 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   .media { width:100%; padding:10mm 12mm 6mm; }
   .cut { border-top:1px dashed #999; text-align:center; color:#999; font-size:10px; padding-top:2px; margin-top:8mm; }
   .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #1d6a35; padding-bottom:6px; }
-  .cname { font-size:19px; font-weight:800; color:#1d6a35; }
-  .csub  { font-size:11px; color:#555; margin-top:2px; }
+  .cname { font-size:21px; font-weight:800; color:#1d6a35; }
+  .csub  { font-size:13px; color:#555; margin-top:2px; }
   .rright { text-align:right; }
-  .rlabel { font-size:10px; letter-spacing:.08em; color:#888; }
-  .rnum   { font-size:20px; font-weight:800; color:#1d6a35; }
-  .rfecha { font-size:12px; color:#555; }
-  .rinfo { display:flex; flex-wrap:wrap; gap:4px 22px; font-size:12.5px; margin:10px 0; }
+  .rlabel { font-size:12px; letter-spacing:.08em; color:#888; }
+  .rnum   { font-size:22px; font-weight:800; color:#1d6a35; }
+  .rfecha { font-size:14px; color:#555; }
+  .rinfo { display:flex; flex-wrap:wrap; gap:6px 22px; font-size:14.5px; margin:10px 0; }
   .rinfo b { color:#333; }
-  table { width:100%; border-collapse:collapse; margin-top:4px; font-size:13px; }
-  th { text-align:left; background:#eef6ef; color:#1d6a35; padding:5px 8px; font-size:11px; text-transform:uppercase; }
-  td { padding:5px 8px; border-bottom:1px solid #eee; }
+  table { width:100%; border-collapse:collapse; margin-top:4px; font-size:15px; }
+  th { text-align:left; background:#eef6ef; color:#1d6a35; padding:6px 8px; font-size:13px; text-transform:uppercase; }
+  td { padding:6px 8px; border-bottom:1px solid #eee; }
   .r { text-align:right; }
   .tot { margin-top:8px; margin-left:auto; width:55%; }
-  .tot > div { display:flex; justify-content:space-between; font-size:13px; padding:2px 8px; }
-  .tfin { font-weight:800; font-size:16px; border-top:2px solid #1d6a35; margin-top:3px; padding-top:4px !important; color:#1d6a35; }
-  .met { margin-top:8px; font-size:12.5px; }
-  .foot { margin-top:8px; font-size:11px; color:#666; }
+  .tot > div { display:flex; justify-content:space-between; font-size:15px; padding:2px 8px; }
+  .tfin { font-weight:800; font-size:18px; border-top:2px solid #1d6a35; margin-top:3px; padding-top:4px !important; color:#1d6a35; }
+  .met { margin-top:8px; font-size:14.5px; }
+  .foot { margin-top:8px; font-size:13px; color:#666; }
   @media print { @page { size:Letter; margin:0; } }
 </style></head><body>
   <div class="media">
