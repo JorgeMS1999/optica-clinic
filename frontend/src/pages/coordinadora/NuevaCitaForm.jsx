@@ -47,6 +47,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     hora: '08:00', tipo: 'consulta', motivo: '', notas_coord: ''
   })
   const [selServicios, setSelServicios] = useState([])
+  const [pacienteHC, setPacienteHC] = useState(null)   // N° historia del paciente elegido
   const [loading, setLoading] = useState(false)
   const [nuevoPaciente, setNuevoPaciente] = useState(null)
   const [creandoPaciente, setCreandoPaciente] = useState(false)
@@ -76,6 +77,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
       try {
         const { data } = await api.get(`/citas/${cita.id}`)
         setCitaInfo(data)
+        setPacienteHC(data.nro_historia)
         setForm({
           paciente_id: data.paciente_id,
           doctor_id:   data.doctor_id,
@@ -120,6 +122,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
       toast.success(data.ya_existia ? 'Paciente ya existía, seleccionado' : 'Paciente creado')
       setForm(f => ({ ...f, paciente_id: data.id }))
       setBusqueda(data.nombre)
+      setPacienteHC(data.nro_historia)
       setNuevoPaciente(null)
       setPacientes([])
     } catch (err) {
@@ -337,16 +340,23 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
               <div className="border border-gray-200 rounded-xl mt-1 shadow-sm max-h-40 overflow-y-auto">
                 {pacientes.map(p => (
                   <button key={p.id} type="button"
-                    onClick={() => { setForm(f => ({ ...f, paciente_id: p.id })); setBusqueda(p.nombre); setPacientes([]) }}
-                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition border-b border-gray-100 last:border-0">
+                    onClick={() => { setForm(f => ({ ...f, paciente_id: p.id })); setBusqueda(p.nombre); setPacienteHC(p.nro_historia); setPacientes([]) }}
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition border-b border-gray-100 last:border-0 flex items-center gap-2">
+                    {p.nro_historia != null && (
+                      <span className="inline-flex items-center justify-center min-w-[1.9rem] px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-xs font-bold font-mono">
+                        {p.nro_historia}
+                      </span>
+                    )}
                     <span className="font-medium">{p.nombre}</span>
-                    <span className="text-gray-400 ml-2">{p.carnet}</span>
+                    <span className="text-gray-400 ml-auto">{p.carnet}</span>
                   </button>
                 ))}
               </div>
             )}
             {form.paciente_id && (
-              <p className="text-xs text-green-600 mt-1 font-medium">✓ Paciente seleccionado</p>
+              <p className="text-xs text-green-600 mt-1 font-medium">
+                ✓ Seleccionado{pacienteHC != null ? ` · Historia Clínica N° ${pacienteHC}` : ''}
+              </p>
             )}
 
             {busqueda.length >= 2 && pacientes.length === 0 && !form.paciente_id && (
