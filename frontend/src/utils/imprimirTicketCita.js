@@ -61,6 +61,7 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   .tot-total{font-size:15px;font-weight:700;margin-top:3px;padding-top:4px;border-top:1px solid #000;}
   .metodo{font-size:12px;margin-top:4px;}
   .footer{text-align:center;font-size:10.5px;color:#222;margin-top:6px;line-height:1.5;}
+  .aviso{text-align:center;font-size:11px;font-weight:700;border:1px dashed #000;border-radius:5px;padding:5px 4px;margin:6px 0;line-height:1.4;}
   @media print { @page { size:80mm auto; margin:0; } body{width:80mm;padding:3mm 5mm;} }
 </style></head><body>
   <div class="center"><div class="nombre">${clinica?.nombre || 'Clínica'}</div>
@@ -84,6 +85,7 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   <div class="tot-row tot-total"><span>TOTAL</span><span>Bs. ${total.toFixed(2)}</span></div>
   ${metodo_pago ? `<div class="metodo">Pago: <span class="bold">${METODO_LABEL[metodo_pago] || metodo_pago}</span>${referencia ? ` · Ref: ${referencia}` : ''}</div>` : ''}
   <hr class="sep"/>
+  <div class="aviso">CONSERVE Y TRAIGA ESTE COMPROBANTE<br/>La reconsulta es GRATUITA dentro de los 15 días</div>
   <div class="footer">${cajeroNombre ? `Atendido por: ${cajeroNombre}<br/>` : ''}¡Gracias por su visita!<br/>Válido como constancia de pago</div>
   <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}</script>
 </body></html>`
@@ -116,7 +118,8 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   .tot > div { display:flex; justify-content:space-between; font-size:15px; padding:2px 8px; }
   .tfin { font-weight:800; font-size:18px; border-top:2px solid #1d6a35; margin-top:3px; padding-top:4px !important; color:#1d6a35; }
   .met { margin-top:8px; font-size:14.5px; }
-  .foot { margin-top:8px; font-size:13px; color:#666; }
+  .aviso { margin-top:10px; text-align:center; font-size:13.5px; font-weight:700; color:#1d6a35; border:1px dashed #1d6a35; border-radius:6px; padding:7px 8px; line-height:1.4; }
+  .foot { margin-top:8px; font-size:13px; color:#666; text-align:center; }
   @media print { @page { size:Letter; margin:0; } }
 </style></head><body>
   <div class="media">
@@ -147,6 +150,7 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
       <div class="tfin"><span>TOTAL</span><span>Bs. ${total.toFixed(2)}</span></div>
     </div>
     ${metodo_pago ? `<div class="met">Pago: <b>${METODO_LABEL[metodo_pago] || metodo_pago}</b>${referencia ? ` · Ref: ${referencia}` : ''}</div>` : ''}
+    <div class="aviso">CONSERVE Y TRAIGA ESTE COMPROBANTE · La reconsulta es GRATUITA dentro de los 15 días</div>
     <div class="foot">${cajeroNombre ? `Atendido por: ${cajeroNombre} · ` : ''}¡Gracias por su visita! — Válido como constancia de pago</div>
     <div class="cut">✂ — — — — — cortar aquí — — — — —</div>
   </div>
