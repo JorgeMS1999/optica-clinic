@@ -6,11 +6,14 @@ import SelectorServiciosCita from '../../components/SelectorServiciosCita'
 import { useAuth } from '../../contexts/AuthContext'
 import { imprimirTicketCita } from '../../utils/imprimirTicketCita'
 
-const HORAS = Array.from({ length: 22 }, (_, i) => {
-  const h = Math.floor(i / 2) + 7
-  const m = i % 2 === 0 ? '00' : '30'
-  return `${String(h).padStart(2,'0')}:${m}`
-})
+// Horarios cada 10 minutos, de 07:00 a 22:00 (10 de la noche)
+const HORAS = (() => {
+  const slots = []
+  for (let min = 7 * 60; min <= 22 * 60; min += 10) {
+    slots.push(`${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`)
+  }
+  return slots
+})()
 
 const TIPOS = [
   { key: 'consulta',      label: 'Consulta' },
