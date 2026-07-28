@@ -60,7 +60,8 @@ export default function MisPacientes() {
             {busqueda ? 'Sin resultados' : 'Escribe un nombre o carnet para buscar'}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[560px]">
             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
               <tr>
                 <th className="px-6 py-3 text-left">Paciente</th>
@@ -73,11 +74,11 @@ export default function MisPacientes() {
             <tbody className="divide-y divide-gray-100">
               {pacientes.map(p => (
                 <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium text-gray-800">{p.nombre}</td>
-                  <td className="px-6 py-4 text-gray-600 font-mono">{p.carnet}</td>
-                  <td className="px-6 py-4 text-gray-500">{p.telefono || '—'}</td>
+                  <td className="px-6 py-4 font-medium text-gray-800 whitespace-nowrap">{p.nombre}</td>
+                  <td className="px-6 py-4 text-gray-600 font-mono whitespace-nowrap">{p.carnet}</td>
+                  <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{p.telefono || '—'}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                       p.registrado_completo ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                     }`}>
                       {p.registrado_completo ? 'Completa' : 'Pendiente'}
@@ -86,7 +87,7 @@ export default function MisPacientes() {
                   <td className="px-6 py-4 text-right">
                     <button
                       onClick={() => verHistorial(p)}
-                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium ml-auto"
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium ml-auto whitespace-nowrap"
                     >
                       <Eye size={16} /> Historial
                     </button>
@@ -95,6 +96,7 @@ export default function MisPacientes() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

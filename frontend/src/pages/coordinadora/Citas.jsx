@@ -133,7 +133,8 @@ export default function Citas() {
             <p>{verTodas ? 'No hay citas registradas' : 'No hay citas para este día'}</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[760px]">
             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
               <tr>
                 {verTodas && <th className="px-4 py-3 text-left">Fecha</th>}
@@ -151,12 +152,12 @@ export default function Citas() {
                   {verTodas && (
                     <td className="px-4 py-4 text-gray-600 whitespace-nowrap">{fmtFechaCorta(c.fecha)}</td>
                   )}
-                  <td className="px-4 py-4 font-mono font-medium text-gray-800">{c.hora?.slice(0,5)}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-4 font-mono font-medium text-gray-800 whitespace-nowrap">{c.hora?.slice(0,5)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <p className="font-medium text-gray-800">{c.paciente_nombre}</p>
                     <p className="text-gray-400 text-xs">{c.carnet}</p>
                   </td>
-                  <td className="px-6 py-4 text-gray-600">{c.doctor_nombre}</td>
+                  <td className="px-6 py-4 text-gray-600 whitespace-nowrap">{c.doctor_nombre}</td>
                   <td className="px-6 py-4"><Badge value={c.tipo} /></td>
                   <td className="px-6 py-4"><Badge value={c.estado} /></td>
                   <td className="px-6 py-4">
@@ -181,6 +182,7 @@ export default function Citas() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
