@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Calendar, Pencil } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Calendar, Pencil, List, CalendarDays } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import Modal from '../../components/ui/Modal'
@@ -15,23 +15,30 @@ function toLocalISO(date) {
   return date.toLocaleDateString('en-CA') // YYYY-MM-DD en zona local
 }
 
+function fmtFechaCorta(iso) {
+  const d = new Date(String(iso).slice(0, 10) + 'T12:00:00')
+  return `${DIAS[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`
+}
+
 export default function Citas() {
   const [fecha, setFecha] = useState(toLocalISO(new Date()))
+  const [verTodas, setVerTodas] = useState(false)   // false = por día, true = todas
   const [citas, setCitas] = useState([])
   const [loading, setLoading] = useState(false)
   const [modalNueva, setModalNueva] = useState(false)
   const [citaEditar, setCitaEditar] = useState(null)
 
-  const cargarCitas = useCallback(async (f) => {
+  const cargarCitas = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await api.get(`/citas?fecha=${f}`)
+      const url = verTodas ? '/citas' : `/citas?fecha=${fecha}`
+      const { data } = await api.get(url)
       setCitas(data)
     } catch { toast.error('Error al cargar citas') }
     finally { setLoading(false) }
-  }, [])
+  }, [verTodas, fecha])
 
-  useEffect(() => { cargarCitas(fecha) }, [fecha, cargarCitas])
+  useEffect(() => { cargarCitas() }, [cargarCitas])
 
   function cambiarDia(delta) {
     const d = new Date(fecha + 'T12:00:00')
@@ -43,7 +50,7 @@ export default function Citas() {
     try {
       await api.patch(`/citas/${citaId}/estado`, { estado })
       toast.success('Estado actualizado')
-      cargarCitas(fecha)
+      cargarCitas()
     } catch (err) {
       toast.error(err.response?.data?.error || 'Error al actualizar')
     }
@@ -67,36 +74,47 @@ export default function Citas() {
         </button>
       </div>
 
-      {/* Navegador de fecha */}
-      <div className="bg-white rounded-2xl shadow-sm p-4 flex items-center gap-4">
-        <button onClick={() => cambiarDia(-1)}
-          className="p-2 hover:bg-gray-100 rounded-xl transition">
-          <ChevronLeft size={20} />
+      {/* Toggle: por día / todas */}
+      <div className="flex gap-2">
+        <button onClick={() => setVerTodas(false)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition
+            ${!verTodas ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+          <CalendarDays size={16} /> Por día
         </button>
-        <div className="flex-1 text-center">
-          <p className="font-semibold text-gray-800 text-lg">
-            {DIAS[fechaObj.getDay()]}, {fechaObj.getDate()} de {MESES[fechaObj.getMonth()]} {fechaObj.getFullYear()}
-          </p>
-          {esHoy && <span className="text-xs text-blue-600 font-medium">Hoy</span>}
-        </div>
-        <button onClick={() => cambiarDia(1)}
-          className="p-2 hover:bg-gray-100 rounded-xl transition">
-          <ChevronRight size={20} />
+        <button onClick={() => setVerTodas(true)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition
+            ${verTodas ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+          <List size={16} /> Todas
         </button>
-        <input
-          type="date" value={fecha}
-          onChange={e => setFecha(e.target.value)}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
       </div>
 
-      {/* Resumen del día */}
+      {/* Navegador de fecha (solo en modo por día) */}
+      {!verTodas && (
+        <div className="bg-white rounded-2xl shadow-sm p-4 flex items-center gap-4">
+          <button onClick={() => cambiarDia(-1)} className="p-2 hover:bg-gray-100 rounded-xl transition">
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex-1 text-center">
+            <p className="font-semibold text-gray-800 text-lg">
+              {DIAS[fechaObj.getDay()]}, {fechaObj.getDate()} de {MESES[fechaObj.getMonth()]} {fechaObj.getFullYear()}
+            </p>
+            {esHoy && <span className="text-xs text-blue-600 font-medium">Hoy</span>}
+          </div>
+          <button onClick={() => cambiarDia(1)} className="p-2 hover:bg-gray-100 rounded-xl transition">
+            <ChevronRight size={20} />
+          </button>
+          <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+      )}
+
+      {/* Resumen */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total',       value: citas.filter(c => !['cancelada','no_asistio'].includes(c.estado)).length, color: 'text-blue-700' },
-          { label: 'En espera',   value: citas.filter(c => c.estado === 'en_espera').length,   color: 'text-yellow-600' },
-          { label: 'En consulta', value: citas.filter(c => c.estado === 'en_consulta').length, color: 'text-purple-600' },
-          { label: 'Atendidas',   value: citas.filter(c => c.estado === 'atendida').length,    color: 'text-green-600' },
+          { label: verTodas ? 'Total citas' : 'Total', value: citas.filter(c => !['cancelada','no_asistio'].includes(c.estado)).length, color: 'text-blue-700' },
+          { label: 'Consultas',     value: citas.filter(c => c.tipo === 'consulta').length,      color: 'text-green-600' },
+          { label: 'Procedimientos',value: citas.filter(c => c.tipo === 'procedimiento').length, color: 'text-amber-600' },
+          { label: 'Cirugías',      value: citas.filter(c => c.tipo === 'cirugia').length,       color: 'text-rose-600' },
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-white rounded-xl shadow-sm p-4 text-center">
             <p className={`text-3xl font-bold ${color}`}>{value}</p>
@@ -112,13 +130,14 @@ export default function Citas() {
         ) : citas.length === 0 ? (
           <div className="p-8 text-center text-gray-400">
             <Calendar size={36} className="mx-auto mb-2 opacity-40" />
-            <p>No hay citas para este día</p>
+            <p>{verTodas ? 'No hay citas registradas' : 'No hay citas para este día'}</p>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
               <tr>
-                <th className="px-6 py-3 text-left">Hora</th>
+                {verTodas && <th className="px-4 py-3 text-left">Fecha</th>}
+                <th className="px-4 py-3 text-left">Hora</th>
                 <th className="px-6 py-3 text-left">Paciente</th>
                 <th className="px-6 py-3 text-left">Doctor</th>
                 <th className="px-6 py-3 text-left">Tipo</th>
@@ -129,9 +148,10 @@ export default function Citas() {
             <tbody className="divide-y divide-gray-100">
               {citas.map(c => (
                 <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-mono font-medium text-gray-800">
-                    {c.hora?.slice(0,5)}
-                  </td>
+                  {verTodas && (
+                    <td className="px-4 py-4 text-gray-600 whitespace-nowrap">{fmtFechaCorta(c.fecha)}</td>
+                  )}
+                  <td className="px-4 py-4 font-mono font-medium text-gray-800">{c.hora?.slice(0,5)}</td>
                   <td className="px-6 py-4">
                     <p className="font-medium text-gray-800">{c.paciente_nombre}</p>
                     <p className="text-gray-400 text-xs">{c.carnet}</p>
@@ -146,15 +166,11 @@ export default function Citas() {
                         onChange={e => cambiarEstado(c.id, e.target.value)}
                         className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       >
-                        {ESTADOS.map(s => (
-                          <option key={s} value={s}>
-                            {s.replace('_',' ')}
-                          </option>
-                        ))}
+                        {ESTADOS.map(s => <option key={s} value={s}>{s.replace('_',' ')}</option>)}
                       </select>
                       <button
                         onClick={() => setCitaEditar(c)}
-                        title="Editar cita y servicios"
+                        title="Editar cita e imprimir"
                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                       >
                         <Pencil size={15} />
@@ -178,7 +194,7 @@ export default function Citas() {
           key={citaEditar?.id || 'nueva'}
           fechaDefault={fecha}
           cita={citaEditar}
-          onGuardada={() => { setModalNueva(false); setCitaEditar(null); cargarCitas(fecha) }}
+          onGuardada={() => { setModalNueva(false); setCitaEditar(null); cargarCitas() }}
         />
       </Modal>
     </div>
