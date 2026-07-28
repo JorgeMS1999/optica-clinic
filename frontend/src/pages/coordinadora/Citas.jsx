@@ -159,7 +159,12 @@ export default function Citas() {
                     <p className="text-gray-400 text-xs">{c.carnet}</p>
                   </td>
                   <td className="px-6 py-4 text-gray-600 whitespace-nowrap">{c.doctor_nombre}</td>
-                  <td className="px-6 py-4"><Badge value={c.tipo} /></td>
+                  <td className="px-6 py-4">
+                    <Badge value={c.tipo} />
+                    {c.servicios_nombres && (
+                      <p className="text-xs text-gray-500 mt-1 max-w-[200px]">{c.servicios_nombres}</p>
+                    )}
+                  </td>
                   <td className="px-6 py-4"><Badge value={c.estado} /></td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {c.pagado ? (
