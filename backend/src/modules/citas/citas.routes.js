@@ -65,7 +65,7 @@ router.get('/:id', async (req, res) => {
   try {
     const r = await db(req).query(
       `SELECT c.*,
-              p.nombre AS paciente_nombre, p.carnet, p.telefono, p.registrado_completo,
+              p.nombre AS paciente_nombre, p.carnet, p.nro_historia, p.telefono, p.registrado_completo,
               d.nombre AS doctor_nombre
        FROM citas c
        JOIN pacientes p ON p.id = c.paciente_id

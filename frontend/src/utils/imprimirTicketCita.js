@@ -115,9 +115,9 @@ export function imprimirTicketCita({
     : ''}
   <div class="tot-row tot-total"><span>TOTAL</span><span>Bs. ${total.toFixed(2)}</span></div>
 
-  <div class="metodo">
+  ${metodo_pago ? `<div class="metodo">
     Pago: <span class="bold">${METODO_LABEL[metodo_pago] || metodo_pago}</span>${referencia ? ` · Ref: ${referencia}` : ''}
-  </div>
+  </div>` : ''}
 
   <hr class="sep" />
 

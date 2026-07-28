@@ -36,6 +36,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
   const [servicios, setServicios] = useState([])   // catálogo
   const [clinica, setClinica]     = useState(null)
   const [comprobante, setComprobante] = useState(null) // datos para el ticket tras cobrar
+  const [citaInfo, setCitaInfo]   = useState(null)     // datos de la cita cargada (modo edición)
   const [busqueda, setBusqueda]   = useState('')
   const [pacientes, setPacientes] = useState([])
   const [form, setForm] = useState({
@@ -71,6 +72,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     async function cargar() {
       try {
         const { data } = await api.get(`/citas/${cita.id}`)
+        setCitaInfo(data)
         setForm({
           paciente_id: data.paciente_id,
           doctor_id:   data.doctor_id,
@@ -205,13 +207,17 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     })
   }
 
-  // Reimprimir el comprobante de una cita ya cobrada (modo edición)
+  // Imprimir el comprobante de la cita. Si tiene cobro registrado usa esos datos;
+  // si no, imprime igual con los servicios de la cita.
   async function handleReimprimir() {
-    try {
-      const { data } = await api.get(`/pagos/cita/${cita.id}`)
-      if (!data || !data.pago) {
-        return toast.error('Esta cita no tiene un cobro registrado para imprimir')
-      }
+    let data = null
+    try { const r = await api.get(`/pagos/cita/${cita.id}`); data = r.data } catch { /* sin pago */ }
+
+    const doctorNombre = citaInfo?.doctor_nombre ||
+      doctores.find(d => String(d.id) === String(form.doctor_id))?.nombre
+
+    if (data && data.pago) {
+      // Con cobro registrado
       const pg = data.pago
       imprimirTicketCita({
         clinica,
@@ -228,8 +234,23 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         referencia:      pg.referencia,
         cajeroNombre:    usuario?.nombre,
       })
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'No se pudo imprimir el comprobante')
+    } else {
+      // Sin cobro: imprimir con los servicios de la cita
+      imprimirTicketCita({
+        clinica,
+        pago: { id: cita.id, creado_en: new Date().toISOString() },
+        paciente:     { nombre: busqueda || citaInfo?.paciente_nombre, carnet: citaInfo?.carnet, nro_historia: citaInfo?.nro_historia },
+        doctorNombre,
+        fecha:        form.fecha,
+        hora:         form.hora,
+        servicios:    selServicios.map(s => ({ nombre: s._nombre, precio: parseFloat(s.precio_cobrado) || 0 })),
+        subtotal:        totalServicios,
+        descuento_monto: 0,
+        total:           totalServicios,
+        metodo_pago:     '',
+        referencia:      '',
+        cajeroNombre:    usuario?.nombre,
+      })
     }
   }
 
