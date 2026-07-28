@@ -54,8 +54,9 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
   const [modalNuevoPac, setModalNuevoPac] = useState(false)  // modal registro completo de paciente
   const [proxHC, setProxHC] = useState(null)                 // próximo N° historia para el nuevo
 
-  // Cobro al registrar la cita (se paga en el acto, no queda pendiente)
-  const [metodoPago, setMetodoPago]         = useState('efectivo')
+  // Cobro. Al crear: efectivo por defecto. Al editar: 'no_pago' para no cobrar
+  // por accidente al solo guardar cambios (se elige el método para cobrar).
+  const [metodoPago, setMetodoPago]         = useState(editando ? 'no_pago' : 'efectivo')
   const [referenciaPago, setReferenciaPago] = useState('')
   const [descuentoBs, setDescuentoBs]       = useState(0)   // descuento neto en Bs.
 
@@ -132,12 +133,34 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     }
   }
 
+  // ¿Se va a registrar un pago ahora? (no si ya está pagada al editar)
+  const vaCobrar = totalServicios > 0 && metodoPago !== 'no_pago' && !(editando && cita?.pagado)
+
+  // Arma la pantalla de comprobante (para imprimir) tras cobrar
+  async function mostrarComprobante(pago) {
+    let pac = { nombre: busqueda }
+    try { const { data } = await api.get(`/pacientes/${form.paciente_id}`); pac = data } catch { /* no crítico */ }
+    const doctorNombre = citaInfo?.doctor_nombre ||
+      doctores.find(d => String(d.id) === String(form.doctor_id))?.nombre
+    setComprobante({
+      pago,
+      servicios:       selServicios.map(s => ({ nombre: s._nombre, precio: parseFloat(s.precio_cobrado) || 0 })),
+      subtotal:        totalServicios,
+      descuento_monto: descuentoMonto,
+      total:           totalCobrar,
+      metodo_pago:     metodoPago,
+      referencia:      referenciaPago,
+      paciente:        pac,
+      doctorNombre,
+      fecha:           form.fecha,
+      hora:            form.hora,
+    })
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.paciente_id) return toast.error('Selecciona un paciente')
     if (!form.doctor_id)   return toast.error('Selecciona un doctor')
-
-    const cobra = !editando && totalServicios > 0 && metodoPago !== 'no_pago'
 
     const payload = {
       ...form,
@@ -147,7 +170,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         notas:          s.notas || null,
       })),
     }
-    if (cobra) {
+    if (!editando && vaCobrar) {
       payload.cobro = {
         metodo_pago:     metodoPago,
         descuento_monto: descuentoMonto,
@@ -159,32 +182,35 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     try {
       if (editando) {
         await api.put(`/citas/${cita.id}`, payload)
-        toast.success('Cita actualizada')
-        onGuardada()
+
+        // Registrar el pago ahora (cita que estaba "por cobrar")
+        if (vaCobrar) {
+          const { data: pago } = await api.post('/pagos', {
+            cita_id:     cita.id,
+            paciente_id: form.paciente_id,
+            servicios:   selServicios.map(s => ({
+              servicio_id:     s.servicio_id,
+              cantidad:        1,
+              precio_unitario: parseFloat(s.precio_cobrado) || 0,
+              descuento_item:  0,
+            })),
+            descuento_monto: descuentoMonto,
+            metodo_pago:     metodoPago,
+            referencia:      referenciaPago || null,
+          })
+          await mostrarComprobante(pago)
+          toast.success(`Pago registrado — Bs. ${totalCobrar.toFixed(2)}`)
+        } else {
+          toast.success('Cita actualizada')
+          onGuardada()
+        }
         return
       }
 
       const { data: nuevaCita } = await api.post('/citas', payload)
 
-      if (cobra && nuevaCita.pago) {
-        // Datos del paciente (HC y carnet) para el comprobante
-        let pac = { nombre: busqueda }
-        try { const { data } = await api.get(`/pacientes/${form.paciente_id}`); pac = data } catch { /* no crítico */ }
-        const doctorNombre = doctores.find(d => String(d.id) === String(form.doctor_id))?.nombre
-
-        setComprobante({
-          pago:            nuevaCita.pago,
-          servicios:       selServicios.map(s => ({ nombre: s._nombre, precio: parseFloat(s.precio_cobrado) || 0 })),
-          subtotal:        totalServicios,
-          descuento_monto: descuentoMonto,
-          total:           totalCobrar,
-          metodo_pago:     metodoPago,
-          referencia:      referenciaPago,
-          paciente:        pac,
-          doctorNombre,
-          fecha:           form.fecha,
-          hora:            form.hora,
-        })
+      if (vaCobrar && nuevaCita.pago) {
+        await mostrarComprobante(nuevaCita.pago)
         toast.success(`Cita registrada y cobrada — Bs. ${totalCobrar.toFixed(2)}`)
       } else {
         toast.success(
@@ -274,7 +300,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
           <CheckCircle size={36} className="text-green-500" />
         </div>
         <div>
-          <p className="text-xl font-bold text-gray-800">¡Cita registrada y cobrada!</p>
+          <p className="text-xl font-bold text-gray-800">{editando ? '¡Pago registrado!' : '¡Cita registrada y cobrada!'}</p>
           <p className="text-gray-500 text-sm mt-1">
             {comprobante.paciente?.nombre}
             {' · '}
@@ -447,12 +473,21 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
             El precio se trae del catálogo y podés ajustarlo aquí mismo (descuentos o precio variable).
           </p>
 
-          {/* Cobro — se paga al registrar la cita */}
-          {!editando && totalServicios > 0 && (
+          {/* Aviso: cita ya cobrada (al editar) */}
+          {editando && cita?.pagado && (
+            <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-3.5 py-2.5 text-sm text-green-700 font-medium">
+              <CheckCircle size={16} /> Esta cita ya está cobrada
+            </div>
+          )}
+
+          {/* Cobro — al crear la cita o al cobrar una cita "por cobrar" al editar */}
+          {totalServicios > 0 && !(editando && cita?.pagado) && (
             <div className="border border-gray-200 rounded-xl p-3.5 space-y-3">
               <div className="flex items-center gap-2">
                 <CreditCard size={15} className="text-blue-600" />
-                <span className="text-sm font-semibold text-gray-700">Pago</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {editando ? 'Registrar pago' : 'Pago'}
+                </span>
               </div>
 
               <div>
@@ -551,16 +586,16 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         )}
         <button type="submit" disabled={loading}
           className={`text-white px-8 py-3 rounded-xl font-semibold text-sm transition shadow-sm disabled:opacity-60
-            ${!editando && totalServicios > 0 && metodoPago !== 'no_pago' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-700 hover:bg-blue-800'}`}>
+            ${vaCobrar ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-700 hover:bg-blue-800'}`}>
           {loading
             ? 'Guardando...'
-            : editando
-              ? 'Guardar cambios'
-              : totalServicios > 0
-                ? (metodoPago === 'no_pago'
-                    ? `Agendar sin pago (Bs. ${totalServicios.toFixed(2)} por cobrar)`
-                    : `Cobrar Bs. ${totalCobrar.toFixed(2)}`)
-                : 'Programar Cita'}
+            : vaCobrar
+              ? `Cobrar Bs. ${totalCobrar.toFixed(2)}`
+              : editando
+                ? 'Guardar cambios'
+                : totalServicios > 0
+                  ? `Agendar sin pago (Bs. ${totalServicios.toFixed(2)} por cobrar)`
+                  : 'Programar Cita'}
         </button>
       </div>
     </form>
