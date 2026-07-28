@@ -69,9 +69,9 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora'), asy
       antecedentes_oculares, antecedentes_familiares, alergias, medicamentos_actuales,
     } = req.body
 
-    if (!nombre?.trim() || !carnet?.trim()) {
+    if (!nombre?.trim()) {
       await client.query('ROLLBACK')
-      return res.status(400).json({ error: 'Nombre y carnet son requeridos' })
+      return res.status(400).json({ error: 'El nombre es requerido' })
     }
 
     const nh = (nro_historia !== undefined && nro_historia !== null && String(nro_historia).trim() !== '')
@@ -86,7 +86,7 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora'), asy
        VALUES (COALESCE($1, nextval('pacientes_nro_historia_seq')),
                $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19, TRUE)
        RETURNING *`,
-      [nh, nombre.trim(), carnet.trim(), fecha_nacimiento || null, sexo || null,
+      [nh, nombre.trim(), carnet?.trim() || null, fecha_nacimiento || null, sexo || null,
        telefono || null, telefono_alt || null, email || null, direccion || null,
        ocupacion || null, estado_civil || null,
        bool(tiene_alergias), bool(dbt), bool(hta), bool(rmto),

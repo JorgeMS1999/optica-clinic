@@ -50,9 +50,11 @@ export function imprimirHistoriaClinica(datos = {}, opts = {}) {
   const { offsetX, offsetY } = GLOBAL
   const guias = !!opts.guias
 
-  const edad = datos.fecha_nacimiento
-    ? Math.floor((new Date() - new Date(datos.fecha_nacimiento)) / (365.25 * 24 * 60 * 60 * 1000))
-    : ''
+  const edad = datos.edad
+    ? datos.edad
+    : (datos.fecha_nacimiento
+        ? Math.floor((new Date() - new Date(datos.fecha_nacimiento)) / (365.25 * 24 * 60 * 60 * 1000))
+        : '')
 
   const valores = {
     nro_historia: datos.nro_historia != null ? String(datos.nro_historia) : '',

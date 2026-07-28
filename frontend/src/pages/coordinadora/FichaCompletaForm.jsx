@@ -31,50 +31,63 @@ function SiNo({ label, value, onChange }) {
 export default function FichaCompletaForm({ paciente, proximoHC, onGuardado }) {
   const editando = !!paciente?.id
 
-  const [form, setForm] = useState(() => ({
-    nro_historia:            paciente?.nro_historia ?? proximoHC ?? '',
-    nombre:                  paciente?.nombre || '',
-    carnet:                  paciente?.carnet || '',
-    fecha_nacimiento:        paciente?.fecha_nacimiento ? String(paciente.fecha_nacimiento).split('T')[0] : '',
-    sexo:                    paciente?.sexo || '',
-    estado_civil:            paciente?.estado_civil || '',
-    ocupacion:               paciente?.ocupacion || '',
-    telefono:                paciente?.telefono || '',
-    telefono_alt:            paciente?.telefono_alt || '',
-    email:                   paciente?.email || '',
-    direccion:               paciente?.direccion || '',
-    tiene_alergias:          paciente?.tiene_alergias ?? null,
-    dbt:                     paciente?.dbt ?? null,
-    hta:                     paciente?.hta ?? null,
-    rmto:                    paciente?.rmto ?? null,
-    antecedentes_oculares:   paciente?.antecedentes_oculares || '',
-    antecedentes_familiares: paciente?.antecedentes_familiares || '',
-    alergias:                paciente?.alergias || '',
-    medicamentos_actuales:   paciente?.medicamentos_actuales || '',
-  }))
+  const calcEdad = (fnac) => fnac
+    ? String(Math.floor((new Date() - new Date(fnac)) / (365.25 * 24 * 60 * 60 * 1000)))
+    : ''
+
+  const [form, setForm] = useState(() => {
+    const fnac = paciente?.fecha_nacimiento ? String(paciente.fecha_nacimiento).split('T')[0] : ''
+    return {
+      nro_historia:            paciente?.nro_historia ?? proximoHC ?? '',
+      nombre:                  paciente?.nombre || '',
+      carnet:                  paciente?.carnet || '',
+      fecha_nacimiento:        fnac,
+      edad:                    calcEdad(fnac),
+      sexo:                    paciente?.sexo || '',
+      estado_civil:            paciente?.estado_civil || '',
+      ocupacion:               paciente?.ocupacion || '',
+      telefono:                paciente?.telefono || '',
+      telefono_alt:            paciente?.telefono_alt || '',
+      email:                   paciente?.email || '',
+      direccion:               paciente?.direccion || '',
+      tiene_alergias:          paciente?.tiene_alergias ?? null,
+      dbt:                     paciente?.dbt ?? null,
+      hta:                     paciente?.hta ?? null,
+      rmto:                    paciente?.rmto ?? null,
+      antecedentes_oculares:   paciente?.antecedentes_oculares || '',
+      antecedentes_familiares: paciente?.antecedentes_familiares || '',
+      alergias:                paciente?.alergias || '',
+      medicamentos_actuales:   paciente?.medicamentos_actuales || '',
+    }
+  })
   const [loading, setLoading] = useState(false)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const edad = form.fecha_nacimiento
-    ? Math.floor((new Date() - new Date(form.fecha_nacimiento)) / (365.25 * 24 * 60 * 60 * 1000))
-    : null
-
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.nombre.trim() || !form.carnet.trim()) {
-      return toast.error('Nombre y carnet son obligatorios')
+    if (!form.nombre.trim()) {
+      return toast.error('El nombre es obligatorio')
     }
+    // Si solo pusieron la edad (sin fecha), derivar una fecha de nacimiento aproximada
+    let fecha_nacimiento = form.fecha_nacimiento
+    if (!fecha_nacimiento && form.edad) {
+      const e2 = parseInt(form.edad)
+      if (e2 > 0 && e2 < 120) fecha_nacimiento = `${new Date().getFullYear() - e2}-01-01`
+    }
+    const payload = { ...form, fecha_nacimiento }
+
     setLoading(true)
     try {
       if (editando) {
-        await api.put(`/pacientes/${paciente.id}`, form)
+        await api.put(`/pacientes/${paciente.id}`, payload)
         toast.success('Ficha actualizada correctamente')
+        onGuardado()
       } else {
-        await api.post('/pacientes', form)
-        toast.success(`Paciente registrado — Historia Clínica N° ${form.nro_historia}`)
+        const { data } = await api.post('/pacientes', payload)
+        toast.success(`Paciente registrado — Historia Clínica N° ${data.nro_historia}`)
+        onGuardado(data)
       }
-      onGuardado()
     } catch (err) {
       toast.error(err.response?.data?.error || 'Error al guardar')
     } finally {
@@ -107,17 +120,24 @@ export default function FichaCompletaForm({ paciente, proximoHC, onGuardado }) {
             <input required value={form.nombre} onChange={e => set('nombre', e.target.value)} className={INPUT} />
           </div>
           <div>
-            <label className={LABEL}>CI / Carnet <span className="text-red-500">*</span></label>
-            <input required value={form.carnet} onChange={e => set('carnet', e.target.value)} className={INPUT} />
+            <label className={LABEL}>CI / Carnet</label>
+            <input value={form.carnet} onChange={e => set('carnet', e.target.value)} className={INPUT} placeholder="opcional" />
           </div>
           <div>
             <label className={LABEL}>Fecha de nacimiento</label>
-            <input type="date" value={form.fecha_nacimiento} onChange={e => set('fecha_nacimiento', e.target.value)} className={INPUT} />
+            <input type="date" value={form.fecha_nacimiento}
+              onChange={e => {
+                const v = e.target.value
+                setForm(f => ({ ...f, fecha_nacimiento: v, edad: v ? calcEdad(v) : f.edad }))
+              }}
+              className={INPUT} />
           </div>
           <div>
             <label className={LABEL}>Edad</label>
-            <input readOnly value={edad != null ? `${edad} años` : ''} placeholder="—"
-              className={`${INPUT} bg-gray-50 text-gray-500`} />
+            <input type="number" min="0" max="120" value={form.edad}
+              onChange={e => set('edad', e.target.value)}
+              placeholder="años" className={INPUT} />
+            <p className="text-[11px] text-gray-400 mt-0.5">Podés poner solo la edad, sin fecha</p>
           </div>
           <div>
             <label className={LABEL}>Sexo</label>

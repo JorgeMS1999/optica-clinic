@@ -5,6 +5,8 @@ import toast from 'react-hot-toast'
 import SelectorServiciosCita from '../../components/SelectorServiciosCita'
 import { useAuth } from '../../contexts/AuthContext'
 import { imprimirTicketCita } from '../../utils/imprimirTicketCita'
+import Modal from '../../components/ui/Modal'
+import FichaCompletaForm from './FichaCompletaForm'
 
 // Horarios cada 10 minutos, de 07:00 a 22:00 (10 de la noche)
 const HORAS = (() => {
@@ -49,8 +51,8 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
   const [selServicios, setSelServicios] = useState([])
   const [pacienteHC, setPacienteHC] = useState(null)   // N° historia del paciente elegido
   const [loading, setLoading] = useState(false)
-  const [nuevoPaciente, setNuevoPaciente] = useState(null)
-  const [creandoPaciente, setCreandoPaciente] = useState(false)
+  const [modalNuevoPac, setModalNuevoPac] = useState(false)  // modal registro completo de paciente
+  const [proxHC, setProxHC] = useState(null)                 // próximo N° historia para el nuevo
 
   // Cobro al registrar la cita (se paga en el acto, no queda pendiente)
   const [metodoPago, setMetodoPago]         = useState('efectivo')
@@ -112,22 +114,22 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     return () => clearTimeout(t)
   }, [busqueda, form.paciente_id])
 
-  async function handleCrearPaciente() {
-    if (!nuevoPaciente?.nombre?.trim() || !nuevoPaciente?.carnet?.trim()) {
-      return toast.error('Nombre y carnet son requeridos')
-    }
-    setCreandoPaciente(true)
+  async function abrirNuevoPaciente() {
     try {
-      const { data } = await api.post('/pacientes/rapido', nuevoPaciente)
-      toast.success(data.ya_existia ? 'Paciente ya existía, seleccionado' : 'Paciente creado')
-      setForm(f => ({ ...f, paciente_id: data.id }))
-      setBusqueda(data.nombre)
-      setPacienteHC(data.nro_historia)
-      setNuevoPaciente(null)
+      const { data } = await api.get('/pacientes/proximo-historia')
+      setProxHC(data.proximo)
+    } catch { setProxHC(null) }
+    setModalNuevoPac(true)
+  }
+
+  function onNuevoPacienteGuardado(p) {
+    setModalNuevoPac(false)
+    if (p?.id) {
+      setForm(f => ({ ...f, paciente_id: p.id }))
+      setBusqueda(p.nombre)
+      setPacienteHC(p.nro_historia)
       setPacientes([])
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Error al crear paciente')
-    } finally { setCreandoPaciente(false) }
+    }
   }
 
   async function handleSubmit(e) {
@@ -320,6 +322,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
   }
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid lg:grid-cols-2 gap-x-8 gap-y-6">
 
@@ -366,35 +369,10 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
             )}
 
             {busqueda.length >= 2 && pacientes.length === 0 && !form.paciente_id && (
-              <div className="mt-2">
-                {!nuevoPaciente ? (
-                  <button type="button"
-                    onClick={() => setNuevoPaciente({ nombre: busqueda, carnet: '' })}
-                    className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium">
-                    <UserPlus size={14} /> No se encontró — crear paciente nuevo
-                  </button>
-                ) : (
-                  <div className="border border-blue-200 bg-blue-50 rounded-xl p-3 space-y-2">
-                    <input type="text" placeholder="Nombre completo" value={nuevoPaciente.nombre}
-                      onChange={e => setNuevoPaciente(np => ({ ...np, nombre: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <input type="text" placeholder="Carnet de identidad" value={nuevoPaciente.carnet}
-                      onChange={e => setNuevoPaciente(np => ({ ...np, carnet: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <div className="flex gap-2">
-                      <button type="button" onClick={handleCrearPaciente} disabled={creandoPaciente}
-                        className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white text-xs font-medium py-2 rounded-lg transition">
-                        {creandoPaciente ? 'Creando...' : 'Crear y usar este paciente'}
-                      </button>
-                      <button type="button" onClick={() => setNuevoPaciente(null)}
-                        className="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition">
-                        Cancelar
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-gray-400">Podrás completar más datos luego desde "Pacientes".</p>
-                  </div>
-                )}
-              </div>
+              <button type="button" onClick={abrirNuevoPaciente}
+                className="mt-2 flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                <UserPlus size={14} /> No se encontró — registrar paciente nuevo
+              </button>
             )}
           </div>
 
@@ -568,5 +546,17 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         </button>
       </div>
     </form>
+
+    {/* Registro completo de un paciente nuevo (desde la cita) */}
+    {modalNuevoPac && (
+      <Modal open onClose={() => setModalNuevoPac(false)} title="Nuevo Paciente" size="xl">
+        <FichaCompletaForm
+          paciente={{ nombre: busqueda }}
+          proximoHC={proxHC}
+          onGuardado={onNuevoPacienteGuardado}
+        />
+      </Modal>
+    )}
+    </>
   )
 }
