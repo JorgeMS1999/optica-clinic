@@ -403,7 +403,7 @@ export default function Ventas() {
         </div>
 
         {/* Items */}
-        <div className="px-5 overflow-y-auto max-h-[45vh] lg:max-h-none lg:flex-1 lg:min-h-0">
+        <div className="px-5 overflow-y-auto min-h-[260px] max-h-[50vh] lg:max-h-none lg:flex-1 lg:min-h-[260px]">
           {carrito.length === 0 ? (
             <div className="flex items-center justify-center text-gray-300 text-sm text-center py-10">
               El carrito está vacío
