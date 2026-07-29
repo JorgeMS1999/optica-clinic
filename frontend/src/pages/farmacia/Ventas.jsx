@@ -389,7 +389,7 @@ export default function Ventas() {
       </div>
 
       {/* Panel derecho — carrito */}
-      <div className="w-full lg:w-80 flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden shrink-0 lg:self-start">
+      <div className="w-full lg:w-80 flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden shrink-0 lg:min-h-0">
         <div className="px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <ShoppingCart size={18} className="text-blue-600" />
@@ -403,7 +403,7 @@ export default function Ventas() {
         </div>
 
         {/* Items */}
-        <div className="px-5 overflow-y-auto min-h-[200px] max-h-[42vh]">
+        <div className="px-5 overflow-y-auto max-h-[40vh] lg:max-h-none lg:flex-1 lg:min-h-0">
           {carrito.length === 0 ? (
             <div className="flex items-center justify-center text-gray-300 text-sm text-center py-10">
               El carrito está vacío
@@ -422,7 +422,7 @@ export default function Ventas() {
         </div>
 
         {/* Footer con totales y pago */}
-        <div className="border-t border-gray-100 px-5 py-4 space-y-3">
+        <div className="border-t border-gray-100 px-5 py-3 space-y-2 shrink-0">
           <input
             type="text"
             placeholder="Nombre del cliente (opcional)"
@@ -458,10 +458,10 @@ export default function Ventas() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             {METODOS.map(m => (
               <button key={m.key} onClick={() => setMetodo(m.key)}
-                className={`py-2 rounded-xl text-xs font-medium transition ${
+                className={`py-2 rounded-xl text-[11px] font-medium transition ${
                   metodo === m.key ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}>
                 {m.label}
