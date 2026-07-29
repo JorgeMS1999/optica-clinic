@@ -65,8 +65,8 @@ function ItemCarrito({ item, onCantidad, onPrecio, onEliminar }) {
   )
 }
 
-/* ─────────── Tarjeta de producto de la grilla ─────────── */
-function ProductoCard({ p, onAgregar }) {
+/* ─────────── Fila de producto (lista) ─────────── */
+function ProductoFila({ p, onAgregar }) {
   const stock = parseInt(p.stock_actual)
   const sinStock  = stock <= 0
   const stockBajo = stock > 0 && stock <= p.stock_minimo
@@ -77,41 +77,39 @@ function ProductoCard({ p, onAgregar }) {
       type="button"
       disabled={sinStock}
       onClick={() => onAgregar(p)}
-      className={`group relative text-left bg-white border rounded-2xl overflow-hidden transition shadow-sm
+      className={`w-full flex items-center gap-3 p-2.5 bg-white border rounded-xl transition text-left
         ${sinStock
           ? 'border-gray-100 opacity-60 cursor-not-allowed'
-          : 'border-gray-100 hover:border-blue-300 hover:shadow-md active:scale-[0.98]'}`}
+          : 'border-gray-100 hover:border-blue-300 hover:bg-blue-50/40 active:scale-[0.99]'}`}
     >
-      {/* Imagen */}
-      <div className="aspect-square bg-gray-50 flex items-center justify-center overflow-hidden">
+      {/* Miniatura */}
+      <div className="w-11 h-11 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
         {p.imagen
           ? <img src={p.imagen} alt={p.nombre} className="w-full h-full object-cover" />
-          : <Package size={34} className="text-gray-200" />}
+          : <Package size={20} className="text-gray-300" />}
       </div>
 
-      {/* Badge de stock */}
-      <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold
-        ${sinStock ? 'bg-red-100 text-red-700'
-          : stockBajo ? 'bg-yellow-100 text-yellow-700'
-          : 'bg-green-100 text-green-700'}`}>
-        {sinStock ? 'Sin stock' : `${stock} uds.`}
-      </span>
+      {/* Nombre + stock */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-800 truncate">{p.nombre}</p>
+        <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold
+          ${sinStock ? 'bg-red-100 text-red-700'
+            : stockBajo ? 'bg-yellow-100 text-yellow-700'
+            : 'bg-green-100 text-green-700'}`}>
+          {sinStock ? 'Sin stock' : `${stock} uds.`}
+        </span>
+      </div>
 
-      {/* Info */}
-      <div className="p-2.5">
-        <p className="text-sm font-medium text-gray-800 leading-tight line-clamp-2 min-h-[2.5rem]">
-          {p.nombre}
-        </p>
-        <div className="flex items-end justify-between mt-1.5">
-          {sinPrecio
-            ? <span className="text-amber-600 text-xs font-semibold">Sin precio</span>
-            : <span className="text-blue-700 font-bold text-sm">Bs. {parseFloat(p.precio_venta).toFixed(2)}</span>}
-          {!sinStock && (
-            <span className="text-[11px] text-gray-400 opacity-0 group-hover:opacity-100 transition flex items-center gap-0.5">
-              <Plus size={12} /> agregar
-            </span>
-          )}
-        </div>
+      {/* Precio + agregar */}
+      <div className="shrink-0 flex items-center gap-2">
+        {sinPrecio
+          ? <span className="text-amber-600 text-xs font-semibold">Sin precio</span>
+          : <span className="text-blue-700 font-bold text-sm whitespace-nowrap">Bs. {parseFloat(p.precio_venta).toFixed(2)}</span>}
+        {!sinStock && (
+          <span className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+            <Plus size={16} />
+          </span>
+        )}
       </div>
     </button>
   )
@@ -379,9 +377,9 @@ export default function Ventas() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="space-y-2">
               {productos.map(p => (
-                <ProductoCard key={p.id} p={p} onAgregar={agregarAlCarrito} />
+                <ProductoFila key={p.id} p={p} onAgregar={agregarAlCarrito} />
               ))}
             </div>
           )}
@@ -389,7 +387,7 @@ export default function Ventas() {
       </div>
 
       {/* Panel derecho — carrito */}
-      <div className="w-full lg:w-80 flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden shrink-0 lg:min-h-0">
+      <div className="w-full lg:w-[420px] flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden shrink-0 lg:min-h-0">
         <div className="px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <ShoppingCart size={18} className="text-blue-600" />
@@ -423,14 +421,6 @@ export default function Ventas() {
 
         {/* Footer con totales y pago */}
         <div className="border-t border-gray-100 px-5 py-3 space-y-2 shrink-0">
-          <input
-            type="text"
-            placeholder="Nombre del cliente (opcional)"
-            value={clienteNombre}
-            onChange={e => setClienteNombre(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 flex-1">Descuento %</span>
             <input
