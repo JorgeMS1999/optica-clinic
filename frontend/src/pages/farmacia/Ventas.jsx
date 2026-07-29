@@ -12,45 +12,54 @@ const METODOS = [
   { key: 'qr',            label: 'QR' },
 ]
 
+const NO_SPINNER = '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+
 function ItemCarrito({ item, onCantidad, onPrecio, onEliminar }) {
   const precioInvalido = !(parseFloat(item.precio_unitario) > 0)
+  const totalLinea = item.cantidad * parseFloat(item.precio_unitario || 0)
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-0">
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-gray-800 text-sm truncate">{item.nombre}</p>
-        <div className="flex items-center gap-2 mt-1.5">
+    <div className="py-3 border-b border-gray-100 last:border-0">
+      {/* Nombre + eliminar */}
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-medium text-gray-800 text-sm leading-snug break-words flex-1 min-w-0">{item.nombre}</p>
+        <button onClick={() => onEliminar(item.producto_id)}
+          className="text-gray-300 hover:text-red-500 transition shrink-0 mt-0.5">
+          <Trash2 size={15} />
+        </button>
+      </div>
+
+      {/* Cantidad + precio unitario */}
+      <div className="flex items-center justify-between gap-2 mt-2">
+        <div className="flex items-center gap-1.5">
           <button onClick={() => onCantidad(item.producto_id, item.cantidad - 1)}
-            className="w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition">
-            <Minus size={12} />
+            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition">
+            <Minus size={13} />
           </button>
-          <span className="w-8 text-center text-sm font-bold text-gray-700">{item.cantidad}</span>
+          <span className="w-7 text-center text-sm font-bold text-gray-700">{item.cantidad}</span>
           <button onClick={() => onCantidad(item.producto_id, item.cantidad + 1)}
             disabled={item.cantidad >= item.stock_actual}
-            className="w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-40 flex items-center justify-center transition">
-            <Plus size={12} />
+            className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-40 flex items-center justify-center transition">
+            <Plus size={13} />
           </button>
-          <span className="text-xs text-gray-400 ml-1">/ {item.stock_actual} disp.</span>
         </div>
-      </div>
-      <div className="flex flex-col items-end gap-1">
-        <button onClick={() => onEliminar(item.producto_id)}
-          className="text-gray-300 hover:text-red-500 transition">
-          <Trash2 size={14} />
-        </button>
         <div className="flex items-center gap-1">
           <span className="text-xs text-gray-400">Bs.</span>
           <input
             type="number" min="0" step="0.01"
             value={item.precio_unitario}
             onChange={e => onPrecio(item.producto_id, e.target.value)}
-            className={`w-20 text-right text-sm font-semibold rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 border
+            className={`w-20 text-right text-sm font-semibold rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 border ${NO_SPINNER}
               ${precioInvalido ? 'border-red-300 bg-red-50 text-red-700' : 'border-gray-200 text-gray-800'}`}
           />
         </div>
-        {precioInvalido && <span className="text-[10px] text-red-500">Ponle un precio</span>}
-        <span className="text-xs text-gray-500">
-          = Bs. {(item.cantidad * parseFloat(item.precio_unitario || 0)).toFixed(2)}
-        </span>
+      </div>
+
+      {/* Stock disponible + total de la línea */}
+      <div className="flex items-center justify-between mt-1.5">
+        <span className="text-[11px] text-gray-400">{item.stock_actual} disp.</span>
+        {precioInvalido
+          ? <span className="text-[11px] text-red-500 font-medium">Ponle un precio</span>
+          : <span className="text-xs font-semibold text-gray-600">= Bs. {totalLinea.toFixed(2)}</span>}
       </div>
     </div>
   )
@@ -428,7 +437,7 @@ export default function Ventas() {
               type="number" min="0" max="100" step="0.5"
               value={descuento}
               onChange={e => setDescuento(e.target.value)}
-              className="w-20 border border-gray-200 rounded-xl px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className={`w-20 border border-gray-200 rounded-xl px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400 ${NO_SPINNER}`}
             />
           </div>
 
