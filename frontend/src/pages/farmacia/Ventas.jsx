@@ -389,7 +389,7 @@ export default function Ventas() {
       </div>
 
       {/* Panel derecho — carrito */}
-      <div className="w-full lg:w-80 flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden shrink-0 lg:min-h-0">
+      <div className="w-full lg:w-80 flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden shrink-0 lg:self-start">
         <div className="px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <ShoppingCart size={18} className="text-blue-600" />
@@ -403,7 +403,7 @@ export default function Ventas() {
         </div>
 
         {/* Items */}
-        <div className="px-5 overflow-y-auto min-h-[260px] max-h-[50vh] lg:max-h-none lg:flex-1 lg:min-h-[260px]">
+        <div className="px-5 overflow-y-auto min-h-[200px] max-h-[42vh]">
           {carrito.length === 0 ? (
             <div className="flex items-center justify-center text-gray-300 text-sm text-center py-10">
               El carrito está vacío
