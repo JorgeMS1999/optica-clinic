@@ -13,12 +13,14 @@ function db(req) {
 // Listar citas con filtros: fecha, doctor, estado
 router.get('/', async (req, res) => {
   try {
-    const { fecha, doctor_id, estado, paciente_id } = req.query
+    const { fecha, fecha_desde, fecha_hasta, doctor_id, estado, paciente_id } = req.query
     const conditions = []
     const params = []
     let i = 1
 
     if (fecha)       { conditions.push(`c.fecha = $${i++}`)       ; params.push(fecha) }
+    if (fecha_desde) { conditions.push(`c.fecha >= $${i++}`)      ; params.push(fecha_desde) }
+    if (fecha_hasta) { conditions.push(`c.fecha <= $${i++}`)      ; params.push(fecha_hasta) }
     if (doctor_id)   { conditions.push(`c.doctor_id = $${i++}`)   ; params.push(doctor_id) }
     if (estado)      { conditions.push(`c.estado = $${i++}`)       ; params.push(estado) }
     if (paciente_id) { conditions.push(`c.paciente_id = $${i++}`) ; params.push(paciente_id) }
@@ -31,13 +33,14 @@ router.get('/', async (req, res) => {
               d.nombre  AS doctor_nombre,
               (pg.id IS NOT NULL)              AS pagado,
               COALESCE(pg.total, 0)            AS pago_total,
+              pg.metodo_pago                   AS pago_metodo,
               COALESCE(srv.total_servicios, 0) AS total_servicios,
               srv.servicios_nombres            AS servicios_nombres
        FROM citas c
        JOIN pacientes p ON p.id = c.paciente_id
        JOIN doctores  d ON d.id = c.doctor_id
        LEFT JOIN LATERAL (
-         SELECT id, total FROM pagos
+         SELECT id, total, metodo_pago FROM pagos
          WHERE cita_id = c.id AND estado = 'pagado'
          ORDER BY id DESC LIMIT 1
        ) pg ON TRUE

@@ -68,23 +68,38 @@ export default function ReportesClinica() {
   async function descargarExcel() {
     setExportando(true)
     try {
-      const { data: rows } = await api.get(
-        `/pagos?fecha_desde=${fechaDesde}&fecha_hasta=${fechaHasta}&limit=5000`
+      // Todas las citas del período (no solo las pagadas)
+      const { data: citas } = await api.get(
+        `/citas?fecha_desde=${fechaDesde}&fecha_hasta=${fechaHasta}`
       )
-      if (!rows.length) { toast('No hay registros en el período'); return }
-      const encabezados = ['Fecha', 'Hora', 'Paciente', 'Carnet', 'Tipo', 'Método de pago', 'Descuento (Bs)', 'Total (Bs)']
-      const filas = rows.map(r => [
-        new Date(r.creado_en).toLocaleDateString('es'),
-        r.cita_hora ? String(r.cita_hora).slice(0, 5) : '',
-        r.paciente_nombre,
-        r.carnet || '',
-        r.cita_tipo || '',
-        r.metodo_pago,
-        parseFloat(r.descuento_monto || 0).toFixed(2),
-        parseFloat(r.total).toFixed(2),
-      ])
-      exportarExcel(`reporte_${fechaDesde}_a_${fechaHasta}`, encabezados, filas)
-      toast.success(`${rows.length} registros descargados`)
+      // Nos quedamos con lo que efectivamente se trabajó: citas con costo o atendidas,
+      // excluyendo canceladas y ausencias.
+      const trabajadas = citas.filter(c =>
+        !['cancelada', 'no_asistio'].includes(c.estado) &&
+        (parseFloat(c.total_servicios) > 0 || c.estado === 'atendida' || c.pagado)
+      )
+      if (!trabajadas.length) { toast('No hay citas en el período'); return }
+
+      const encabezados = ['Fecha', 'Hora', 'Paciente', 'Carnet', 'Doctor', 'Tipo', 'Servicios', 'Estado cita', 'Estado pago', 'Método pago', 'Monto (Bs)']
+      const filas = trabajadas.map(c => {
+        const pagado = c.pagado
+        const monto  = pagado ? parseFloat(c.pago_total) : parseFloat(c.total_servicios || 0)
+        return [
+          String(c.fecha).slice(0, 10),
+          c.hora ? String(c.hora).slice(0, 5) : '',
+          c.paciente_nombre,
+          c.carnet || '',
+          c.doctor_nombre || '',
+          c.tipo || '',
+          c.servicios_nombres || '',
+          (c.estado || '').replace('_', ' '),
+          pagado ? 'Pagado' : (parseFloat(c.total_servicios) > 0 ? 'Por cobrar' : 'Sin costo'),
+          pagado ? (c.pago_metodo || '') : '',
+          monto.toFixed(2),
+        ]
+      })
+      exportarExcel(`citas_${fechaDesde}_a_${fechaHasta}`, encabezados, filas)
+      toast.success(`${trabajadas.length} citas descargadas`)
     } catch {
       toast.error('Error al exportar')
     } finally {
