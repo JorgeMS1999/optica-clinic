@@ -1,17 +1,26 @@
 import { useEffect, useState } from 'react'
-import { Calendar, UserCheck, Clock, CheckCircle } from 'lucide-react'
+import { Calendar, UserCheck, Clock, CheckCircle, Stethoscope } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api from '../../services/api'
 
 export default function CoordinadoraDashboard() {
   const [resumen, setResumen] = useState(null)
   const [citas, setCitas] = useState([])
+  const [doctores, setDoctores] = useState([])
+  const [doctorSel, setDoctorSel] = useState('')   // '' = todos
 
   useEffect(() => {
-    api.get('/citas/hoy/resumen').then(r => setResumen(r.data)).catch(() => {})
-    const hoy = new Date().toLocaleDateString('en-CA')
-    api.get(`/citas?fecha=${hoy}`).then(r => setCitas(r.data.slice(0,5))).catch(() => {})
+    api.get('/doctores').then(r => setDoctores(r.data)).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const q = doctorSel ? `?doctor_id=${doctorSel}` : ''
+    api.get(`/citas/hoy/resumen${q}`).then(r => setResumen(r.data)).catch(() => {})
+    const hoy = new Date().toLocaleDateString('en-CA')
+    const params = new URLSearchParams({ fecha: hoy })
+    if (doctorSel) params.set('doctor_id', doctorSel)
+    api.get(`/citas?${params}`).then(r => setCitas(r.data.slice(0,8))).catch(() => {})
+  }, [doctorSel])
 
   const fecha = new Date().toLocaleDateString('es', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -19,11 +28,21 @@ export default function CoordinadoraDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800 capitalize">
-          {fecha}
-        </h2>
-        <p className="text-gray-500 text-sm mt-0.5">Panel de coordinación</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800 capitalize">
+            {fecha}
+          </h2>
+          <p className="text-gray-500 text-sm mt-0.5">Panel de coordinación</p>
+        </div>
+        <div className="relative">
+          <Stethoscope size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <select value={doctorSel} onChange={e => setDoctorSel(e.target.value)}
+            className="pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+            <option value="">Todos los médicos</option>
+            {doctores.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

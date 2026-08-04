@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Calendar, Pencil, List, CalendarDays } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Calendar, Pencil, List, CalendarDays, Stethoscope } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import Modal from '../../components/ui/Modal'
@@ -34,16 +34,24 @@ export default function Citas() {
   const [loading, setLoading] = useState(false)
   const [modalNueva, setModalNueva] = useState(false)
   const [citaEditar, setCitaEditar] = useState(null)
+  const [doctores, setDoctores] = useState([])
+  const [doctorSel, setDoctorSel] = useState('')   // '' = todos
+
+  useEffect(() => {
+    api.get('/doctores').then(r => setDoctores(r.data)).catch(() => {})
+  }, [])
 
   const cargarCitas = useCallback(async () => {
     setLoading(true)
     try {
-      const url = verTodas ? '/citas' : `/citas?fecha=${fecha}`
-      const { data } = await api.get(url)
+      const params = new URLSearchParams()
+      if (!verTodas) params.set('fecha', fecha)
+      if (doctorSel) params.set('doctor_id', doctorSel)
+      const { data } = await api.get(`/citas?${params}`)
       setCitas(data)
     } catch { toast.error('Error al cargar citas') }
     finally { setLoading(false) }
-  }, [verTodas, fecha])
+  }, [verTodas, fecha, doctorSel])
 
   useEffect(() => { cargarCitas() }, [cargarCitas])
 
@@ -81,8 +89,8 @@ export default function Citas() {
         </button>
       </div>
 
-      {/* Toggle: por día / todas */}
-      <div className="flex gap-2">
+      {/* Toggle: por día / todas + filtro por médico */}
+      <div className="flex flex-wrap items-center gap-2">
         <button onClick={() => setVerTodas(false)}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition
             ${!verTodas ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
@@ -93,6 +101,14 @@ export default function Citas() {
             ${verTodas ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
           <List size={16} /> Todas
         </button>
+        <div className="relative sm:ml-auto">
+          <Stethoscope size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <select value={doctorSel} onChange={e => setDoctorSel(e.target.value)}
+            className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Todos los médicos</option>
+            {doctores.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* Navegador de fecha (solo en modo por día) */}

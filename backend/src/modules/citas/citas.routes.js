@@ -61,9 +61,13 @@ router.get('/', async (req, res) => {
   }
 })
 
-// Citas de hoy resumidas (para dashboard)
+// Citas de hoy resumidas (para dashboard). Filtro opcional por doctor.
 router.get('/hoy/resumen', async (req, res) => {
   try {
+    const { doctor_id } = req.query
+    const params = []
+    let filtroDoctor = ''
+    if (doctor_id) { params.push(doctor_id); filtroDoctor = `AND doctor_id = $1` }
     const r = await db(req).query(
       `SELECT
         COUNT(*) FILTER (WHERE estado NOT IN ('cancelada','no_asistio','anulado')) AS total,
@@ -71,7 +75,8 @@ router.get('/hoy/resumen', async (req, res) => {
         COUNT(*) FILTER (WHERE estado = 'en_consulta') AS en_consulta,
         COUNT(*) FILTER (WHERE estado = 'atendida')    AS atendidas,
         COUNT(*) FILTER (WHERE estado = 'programada' OR estado = 'confirmada') AS programadas
-       FROM citas WHERE fecha = CURRENT_DATE`
+       FROM citas WHERE fecha = CURRENT_DATE ${filtroDoctor}`,
+      params
     )
     res.json(r.rows[0])
   } catch (err) {
