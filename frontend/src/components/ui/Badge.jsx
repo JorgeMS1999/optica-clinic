@@ -6,6 +6,7 @@ const COLORS = {
   atendida:    'bg-green-100 text-green-700',
   cancelada:   'bg-red-100 text-red-700',
   no_asistio:  'bg-gray-100 text-gray-500',
+  anulado:     'bg-gray-800 text-gray-100',
   consulta:    'bg-blue-100 text-blue-700',
   procedimiento:'bg-orange-100 text-orange-700',
   cirugia:     'bg-red-100 text-red-700',
@@ -14,7 +15,7 @@ const COLORS = {
 const LABELS = {
   programada: 'Programada', confirmada: 'Confirmada',
   en_espera: 'En espera', en_consulta: 'En consulta',
-  atendida: 'Atendida', cancelada: 'Cancelada', no_asistio: 'No asistió',
+  atendida: 'Atendida', cancelada: 'Cancelada', no_asistio: 'No asistió', anulado: 'Anulada',
   consulta: 'Consulta', procedimiento: 'Procedimiento', cirugia: 'Cirugía',
 }
 

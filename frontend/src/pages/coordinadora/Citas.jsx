@@ -5,11 +5,15 @@ import toast from 'react-hot-toast'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
 import NuevaCitaForm from './NuevaCitaForm'
+import { useAuth } from '../../contexts/AuthContext'
 
 const DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 const ESTADOS = ['programada','confirmada','en_espera','en_consulta','atendida','cancelada','no_asistio']
+// "anulado" solo disponible para estos roles
+const ROLES_ANULAR = ['superadmin','admin_clinica','coordinadora']
+const INACTIVOS = ['cancelada','no_asistio','anulado']
 
 function toLocalISO(date) {
   return date.toLocaleDateString('en-CA') // YYYY-MM-DD en zona local
@@ -21,6 +25,9 @@ function fmtFechaCorta(iso) {
 }
 
 export default function Citas() {
+  const { usuario } = useAuth()
+  const puedeAnular = ROLES_ANULAR.includes(usuario?.rol)
+  const estadosDisponibles = puedeAnular ? [...ESTADOS, 'anulado'] : ESTADOS
   const [fecha, setFecha] = useState(toLocalISO(new Date()))
   const [verTodas, setVerTodas] = useState(false)   // false = por día, true = todas
   const [citas, setCitas] = useState([])
@@ -111,7 +118,7 @@ export default function Citas() {
       {/* Resumen */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: verTodas ? 'Total citas' : 'Total', value: citas.filter(c => !['cancelada','no_asistio'].includes(c.estado)).length, color: 'text-blue-700' },
+          { label: verTodas ? 'Total citas' : 'Total', value: citas.filter(c => !INACTIVOS.includes(c.estado)).length, color: 'text-blue-700' },
           { label: 'Consultas',     value: citas.filter(c => c.tipo === 'consulta').length,      color: 'text-green-600' },
           { label: 'Procedimientos',value: citas.filter(c => c.tipo === 'procedimiento').length, color: 'text-amber-600' },
           { label: 'Cirugías',      value: citas.filter(c => c.tipo === 'cirugia').length,       color: 'text-rose-600' },
@@ -167,23 +174,28 @@ export default function Citas() {
                   </td>
                   <td className="px-3 py-3"><Badge value={c.estado} /></td>
                   <td className="px-3 py-3 whitespace-nowrap">
-                    {c.pagado ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                        Pagado
+                    {INACTIVOS.includes(c.estado) ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400">
+                        —
                       </span>
+                    ) : c.pagado ? (
+                      <>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                          Pagado
+                        </span>
+                        <p className="text-[11px] text-gray-400 mt-0.5">Bs. {parseFloat(c.pago_total).toFixed(2)}</p>
+                      </>
                     ) : parseFloat(c.total_servicios) > 0 ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                        Por cobrar
-                      </span>
+                      <>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                          Por cobrar
+                        </span>
+                        <p className="text-[11px] text-gray-400 mt-0.5">Bs. {parseFloat(c.total_servicios).toFixed(2)}</p>
+                      </>
                     ) : (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400">
                         —
                       </span>
-                    )}
-                    {(c.pagado || parseFloat(c.total_servicios) > 0) && (
-                      <p className="text-[11px] text-gray-400 mt-0.5">
-                        Bs. {parseFloat(c.pagado ? c.pago_total : c.total_servicios).toFixed(2)}
-                      </p>
                     )}
                   </td>
                   <td className="px-3 py-3">
@@ -193,7 +205,7 @@ export default function Citas() {
                         onChange={e => cambiarEstado(c.id, e.target.value)}
                         className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       >
-                        {ESTADOS.map(s => <option key={s} value={s}>{s.replace('_',' ')}</option>)}
+                        {estadosDisponibles.map(s => <option key={s} value={s}>{s.replace('_',' ')}</option>)}
                       </select>
                       <button
                         onClick={() => setCitaEditar(c)}

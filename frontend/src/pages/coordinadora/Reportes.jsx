@@ -35,12 +35,12 @@ function BarraRanking({ label, value, max, formato = v => v }) {
 
 const ESTADO_LABEL = {
   programada: 'Programadas', confirmada: 'Confirmadas', en_espera: 'En espera',
-  en_consulta: 'En consulta', atendida: 'Atendidas', cancelada: 'Canceladas', no_asistio: 'No asistió'
+  en_consulta: 'En consulta', atendida: 'Atendidas', cancelada: 'Canceladas', no_asistio: 'No asistió', anulado: 'Anuladas'
 }
 const ESTADO_COLOR = {
   atendida: 'bg-green-500', programada: 'bg-blue-400', confirmada: 'bg-blue-600',
   en_espera: 'bg-yellow-400', en_consulta: 'bg-purple-500',
-  cancelada: 'bg-gray-400', no_asistio: 'bg-red-400',
+  cancelada: 'bg-gray-400', no_asistio: 'bg-red-400', anulado: 'bg-gray-800',
 }
 
 export default function ReportesClinica() {
@@ -75,7 +75,7 @@ export default function ReportesClinica() {
       // Nos quedamos con lo que efectivamente se trabajó: citas con costo o atendidas,
       // excluyendo canceladas y ausencias.
       const trabajadas = citas.filter(c =>
-        !['cancelada', 'no_asistio'].includes(c.estado) &&
+        !['cancelada', 'no_asistio', 'anulado'].includes(c.estado) &&
         (parseFloat(c.total_servicios) > 0 || c.estado === 'atendida' || c.pagado)
       )
       if (!trabajadas.length) { toast('No hay citas en el período'); return }

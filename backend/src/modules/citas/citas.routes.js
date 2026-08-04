@@ -66,7 +66,7 @@ router.get('/hoy/resumen', async (req, res) => {
   try {
     const r = await db(req).query(
       `SELECT
-        COUNT(*) FILTER (WHERE estado != 'cancelada' AND estado != 'no_asistio') AS total,
+        COUNT(*) FILTER (WHERE estado NOT IN ('cancelada','no_asistio','anulado')) AS total,
         COUNT(*) FILTER (WHERE estado = 'en_espera')   AS en_espera,
         COUNT(*) FILTER (WHERE estado = 'en_consulta') AS en_consulta,
         COUNT(*) FILTER (WHERE estado = 'atendida')    AS atendidas,
@@ -124,7 +124,7 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora'), asy
     const choque = await client.query(
       `SELECT id FROM citas
        WHERE doctor_id=$1 AND fecha=$2 AND hora=$3
-         AND estado NOT IN ('cancelada','no_asistio')`,
+         AND estado NOT IN ('cancelada','no_asistio','anulado')`,
       [doctor_id, fecha, hora]
     )
     if (choque.rows[0]) {
@@ -189,19 +189,36 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'coordinadora'), asy
 
 // Cambiar estado de cita
 router.patch('/:id/estado', requireRole('superadmin', 'admin_clinica', 'coordinadora', 'doctor'), async (req, res) => {
+  const client = await db(req).getClient()
   try {
     const { estado } = req.body
-    const validos = ['programada','confirmada','en_espera','en_consulta','atendida','cancelada','no_asistio']
+    const validos = ['programada','confirmada','en_espera','en_consulta','atendida','cancelada','no_asistio','anulado']
     if (!validos.includes(estado)) {
       return res.status(400).json({ error: 'Estado inválido' })
     }
-    const r = await db(req).query(
+    // "anulado" solo lo pueden usar admin de clínica / coordinadora / superadmin
+    if (estado === 'anulado' && !['superadmin','admin_clinica','coordinadora'].includes(req.user.rol)) {
+      return res.status(403).json({ error: 'No autorizado para anular citas' })
+    }
+    await client.query('BEGIN')
+    const r = await client.query(
       `UPDATE citas SET estado=$1 WHERE id=$2 RETURNING *`,
       [estado, req.params.id]
     )
+    // Al cancelar o anular la cita, anular su pago para que deje de contar como ingreso.
+    if (estado === 'cancelada' || estado === 'anulado') {
+      await client.query(
+        `UPDATE pagos SET estado='anulado' WHERE cita_id=$1 AND estado='pagado'`,
+        [req.params.id]
+      )
+    }
+    await client.query('COMMIT')
     res.json(r.rows[0])
   } catch (err) {
+    await client.query('ROLLBACK')
     res.status(400).json({ error: err.message })
+  } finally {
+    client.release()
   }
 })
 
@@ -216,7 +233,7 @@ router.put('/:id', requireRole('superadmin', 'admin_clinica', 'coordinadora'), a
     const choque = await client.query(
       `SELECT id FROM citas
        WHERE doctor_id=$1 AND fecha=$2 AND hora=$3
-         AND estado NOT IN ('cancelada','no_asistio') AND id != $4`,
+         AND estado NOT IN ('cancelada','no_asistio','anulado') AND id != $4`,
       [doctor_id, fecha, hora, req.params.id]
     )
     if (choque.rows[0]) {

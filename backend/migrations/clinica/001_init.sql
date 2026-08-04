@@ -119,7 +119,7 @@ CREATE TABLE citas (
     hora            TIME NOT NULL,
     tipo            VARCHAR(30) NOT NULL CHECK (tipo IN ('consulta','procedimiento','cirugia')),
     estado          VARCHAR(30) NOT NULL DEFAULT 'programada'
-                    CHECK (estado IN ('programada','confirmada','en_espera','en_consulta','atendida','cancelada','no_asistio')),
+                    CHECK (estado IN ('programada','confirmada','en_espera','en_consulta','atendida','cancelada','no_asistio','anulado')),
     motivo          TEXT,
     notas_coord     TEXT,
     creado_por      INTEGER NOT NULL,  -- usuario_id global de la coordinadora

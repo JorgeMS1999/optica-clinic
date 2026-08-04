@@ -22,7 +22,7 @@ router.get('/pendientes', async (req, res) => {
        FROM citas c
        JOIN pacientes p ON p.id = c.paciente_id
        JOIN doctores  d ON d.id = c.doctor_id
-       WHERE c.estado NOT IN ('cancelada','no_asistio')
+       WHERE c.estado NOT IN ('cancelada','no_asistio','anulado')
          AND (
            c.estado = 'atendida'
            OR (c.tipo IN ('procedimiento','cirugia')
@@ -172,7 +172,7 @@ router.get('/reporte', async (req, res) => {
            (SELECT COUNT(*) FROM citas WHERE estado='atendida' AND fecha BETWEEN $1 AND $2) AS citas_atendidas,
            (SELECT COUNT(*) FROM citas c
               WHERE c.fecha BETWEEN $1 AND $2
-                AND c.estado NOT IN ('cancelada','no_asistio')
+                AND c.estado NOT IN ('cancelada','no_asistio','anulado')
                 AND EXISTS (SELECT 1 FROM cita_servicios cs WHERE cs.cita_id = c.id)
                 AND NOT EXISTS (SELECT 1 FROM pagos pg WHERE pg.cita_id = c.id AND pg.estado='pagado')
            ) AS citas_por_cobrar,
@@ -180,7 +180,7 @@ router.get('/reporte', async (req, res) => {
               FROM cita_servicios cs
               JOIN citas c ON c.id = cs.cita_id
               WHERE c.fecha BETWEEN $1 AND $2
-                AND c.estado NOT IN ('cancelada','no_asistio')
+                AND c.estado NOT IN ('cancelada','no_asistio','anulado')
                 AND NOT EXISTS (SELECT 1 FROM pagos pg WHERE pg.cita_id = c.id AND pg.estado='pagado')
            ) AS monto_por_cobrar`,
         [desde, hasta]

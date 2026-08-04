@@ -75,7 +75,7 @@ router.get('/mi-resumen', async (req, res) => {
 
     const r = await db(req).query(
       `SELECT
-        COUNT(*) FILTER (WHERE estado NOT IN ('cancelada','no_asistio')) AS total,
+        COUNT(*) FILTER (WHERE estado NOT IN ('cancelada','no_asistio','anulado')) AS total,
         COUNT(*) FILTER (WHERE estado = 'atendida')                     AS atendidas,
         COUNT(*) FILTER (WHERE estado IN ('programada','confirmada','en_espera')) AS pendientes,
         COUNT(*) FILTER (WHERE estado = 'en_consulta')                  AS en_consulta
