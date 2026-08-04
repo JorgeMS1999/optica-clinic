@@ -205,8 +205,9 @@ router.patch('/:id/estado', requireRole('superadmin', 'admin_clinica', 'coordina
       `UPDATE citas SET estado=$1 WHERE id=$2 RETURNING *`,
       [estado, req.params.id]
     )
-    // Al cancelar o anular la cita, anular su pago para que deje de contar como ingreso.
-    if (estado === 'cancelada' || estado === 'anulado') {
+    // Solo al ANULAR la cita se anula su pago (deja de contar como ingreso).
+    // "cancelada" se deja como estaba: no toca el pago.
+    if (estado === 'anulado') {
       await client.query(
         `UPDATE pagos SET estado='anulado' WHERE cita_id=$1 AND estado='pagado'`,
         [req.params.id]

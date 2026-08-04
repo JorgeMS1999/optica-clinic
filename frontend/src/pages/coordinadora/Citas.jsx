@@ -174,18 +174,14 @@ export default function Citas() {
                   </td>
                   <td className="px-3 py-3"><Badge value={c.estado} /></td>
                   <td className="px-3 py-3 whitespace-nowrap">
-                    {INACTIVOS.includes(c.estado) ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400">
-                        —
-                      </span>
-                    ) : c.pagado ? (
+                    {c.pagado ? (
                       <>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
                           Pagado
                         </span>
                         <p className="text-[11px] text-gray-400 mt-0.5">Bs. {parseFloat(c.pago_total).toFixed(2)}</p>
                       </>
-                    ) : parseFloat(c.total_servicios) > 0 ? (
+                    ) : (!INACTIVOS.includes(c.estado) && parseFloat(c.total_servicios) > 0) ? (
                       <>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
                           Por cobrar
