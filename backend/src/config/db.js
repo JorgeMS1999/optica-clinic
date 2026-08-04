@@ -1,4 +1,10 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Las columnas DATE (OID 1082) se devuelven como texto 'YYYY-MM-DD' tal cual,
+// SIN convertir a objeto Date. Evita el desfase de un día al serializar a JSON
+// cuando el servidor está en una zona horaria distinta de UTC (ej. Europe/Berlin).
+// Afecta solo a `date`; los `timestamptz` (fechas con hora) no se tocan.
+types.setTypeParser(1082, v => v);
 
 const BASE = {
   host:            process.env.DB_GLOBAL_HOST || 'localhost',
