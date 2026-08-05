@@ -80,10 +80,12 @@ export default function ReportesClinica() {
       )
       if (!trabajadas.length) { toast('No hay citas en el período'); return }
 
-      const encabezados = ['Fecha', 'Hora', 'Paciente', 'Carnet', 'Doctor', 'Tipo', 'Servicios', 'Estado cita', 'Estado pago', 'Método pago', 'Monto (Bs)']
+      const encabezados = ['Fecha', 'Hora', 'Paciente', 'Carnet', 'Doctor', 'Tipo', 'Servicios', 'Estado cita', 'Estado pago', 'Método pago', 'Costo original (Bs)', 'Costo cobrado (Bs)', 'Diferencia (Bs)']
       const filas = trabajadas.map(c => {
-        const pagado = c.pagado
-        const monto  = pagado ? parseFloat(c.pago_total) : parseFloat(c.total_servicios || 0)
+        const pagado    = c.pagado
+        const cobrado   = parseFloat(c.total_servicios || 0)   // precio actual/editado (lo que se cobra)
+        const original  = parseFloat(c.total_catalogo || 0)    // precio de lista en el catálogo (BD)
+        const diferencia = cobrado - original
         return [
           String(c.fecha).slice(0, 10),
           c.hora ? String(c.hora).slice(0, 5) : '',
@@ -93,9 +95,11 @@ export default function ReportesClinica() {
           c.tipo || '',
           c.servicios_nombres || '',
           (c.estado || '').replace('_', ' '),
-          pagado ? 'Pagado' : (parseFloat(c.total_servicios) > 0 ? 'Por cobrar' : 'Sin costo'),
+          pagado ? 'Pagado' : (cobrado > 0 ? 'Por cobrar' : 'Sin costo'),
           pagado ? (c.pago_metodo || '') : '',
-          monto.toFixed(2),
+          original.toFixed(2),
+          cobrado.toFixed(2),
+          (diferencia >= 0 ? '+' : '') + diferencia.toFixed(2),
         ]
       })
       exportarExcel(`citas_${fechaDesde}_a_${fechaHasta}`, encabezados, filas)

@@ -35,6 +35,7 @@ router.get('/', async (req, res) => {
               COALESCE(pg.total, 0)            AS pago_total,
               pg.metodo_pago                   AS pago_metodo,
               COALESCE(srv.total_servicios, 0) AS total_servicios,
+              COALESCE(srv.total_catalogo, 0)  AS total_catalogo,
               srv.servicios_nombres            AS servicios_nombres
        FROM citas c
        JOIN pacientes p ON p.id = c.paciente_id
@@ -46,6 +47,7 @@ router.get('/', async (req, res) => {
        ) pg ON TRUE
        LEFT JOIN LATERAL (
          SELECT COALESCE(SUM(cs.precio_cobrado), 0) AS total_servicios,
+                COALESCE(SUM(s.precio), 0)          AS total_catalogo,
                 string_agg(s.nombre, ', ' ORDER BY s.nombre) AS servicios_nombres
          FROM cita_servicios cs
          JOIN servicios s ON s.id = cs.servicio_id
