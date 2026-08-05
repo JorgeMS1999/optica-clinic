@@ -3,4 +3,12 @@
 @tailwind utilities;
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: system-ui, 'Segoe UI', sans-serif; background: #f1f5f9; }
+body { font-family: system-ui, 'Segoe UI', sans-serif; background: #f1f5f9; color: #000; }
+
+/* El usuario pidió que NO haya texto en color plomo/gris: todo el texto gris pasa a negro.
+   Solo afecta el color del TEXTO (text-gray-*), no fondos (bg-gray-*) ni bordes (border-gray-*). */
+.text-gray-400,
+.text-gray-500,
+.text-gray-600,
+.text-gray-700,
+.text-gray-800 { color: #000 !important; }
