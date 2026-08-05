@@ -369,7 +369,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
             <div className="relative">
               <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
-                type="text" placeholder="Buscar por nombre o carnet..."
+                type="text" placeholder="Buscar por nombre, carnet o N° historia..."
                 value={busqueda}
                 onChange={e => { setBusqueda(e.target.value); setForm(f => ({ ...f, paciente_id: '' })) }}
                 className={`${INPUT} pl-9`}

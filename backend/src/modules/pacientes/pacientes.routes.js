@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
       `SELECT id, nro_historia, nombre, carnet, telefono, fecha_nacimiento, sexo,
               registrado_completo, creado_en
        FROM pacientes
-       WHERE nombre ILIKE $1 OR carnet ILIKE $1
+       WHERE nombre ILIKE $1 OR carnet ILIKE $1 OR nro_historia::text ILIKE $1
        ORDER BY nombre LIMIT 100`,
       [busqueda]
     )
