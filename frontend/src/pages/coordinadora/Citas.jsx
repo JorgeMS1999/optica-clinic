@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Calendar, Pencil, List, CalendarDays, Stethoscope } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Calendar, Pencil, List, CalendarDays, Stethoscope, DollarSign } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
 import NuevaCitaForm from './NuevaCitaForm'
+import CobrarCitaModal from './CobrarCitaModal'
 import { useAuth } from '../../contexts/AuthContext'
 
 const DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
@@ -34,6 +35,7 @@ export default function Citas() {
   const [loading, setLoading] = useState(false)
   const [modalNueva, setModalNueva] = useState(false)
   const [citaEditar, setCitaEditar] = useState(null)
+  const [citaCobrar, setCitaCobrar] = useState(null)
   const [doctores, setDoctores] = useState([])
   const [doctorSel, setDoctorSel] = useState('')   // '' = todos
 
@@ -213,6 +215,15 @@ export default function Citas() {
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
+                      {!INACTIVOS.includes(c.estado) && (c.estado_pago === 'por_cobrar' || c.estado_pago === 'parcial') && (
+                        <button
+                          onClick={() => setCitaCobrar(c)}
+                          title="Cobrar"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition"
+                        >
+                          <DollarSign size={14} /> Cobrar
+                        </button>
+                      )}
                       <select
                         value={c.estado}
                         onChange={e => cambiarEstado(c.id, e.target.value)}
@@ -249,6 +260,21 @@ export default function Citas() {
           cita={citaEditar}
           onGuardada={() => { setModalNueva(false); setCitaEditar(null); cargarCitas() }}
         />
+      </Modal>
+
+      <Modal
+        open={!!citaCobrar}
+        onClose={() => setCitaCobrar(null)}
+        title={citaCobrar ? `Cobrar — ${citaCobrar.paciente_nombre}` : ''}
+        size="md"
+      >
+        {citaCobrar && (
+          <CobrarCitaModal
+            cita={citaCobrar}
+            onClose={() => setCitaCobrar(null)}
+            onCobrado={() => cargarCitas()}
+          />
+        )}
       </Modal>
     </div>
   )

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { UserPlus, User, CalendarDays, Stethoscope, ClipboardList, CreditCard, Printer, CheckCircle } from 'lucide-react'
+import { UserPlus, User, CalendarDays, Stethoscope, ClipboardList, Printer } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import SelectorServiciosCita from '../../components/SelectorServiciosCita'
@@ -23,13 +23,6 @@ const TIPOS = [
   { key: 'cirugia',       label: 'Cirugía' },
 ]
 
-const METODOS_PAGO = [
-  { key: 'efectivo', label: 'Efectivo' },
-  { key: 'qr',       label: 'QR' },
-  { key: 'seguro',   label: 'Seguro' },
-  { key: 'no_pago',  label: 'No pago' },
-]
-
 const LABEL = 'block text-sm font-medium text-gray-700 mb-1.5'
 const INPUT = 'w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
@@ -40,7 +33,6 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
   const [doctores, setDoctores]   = useState([])
   const [servicios, setServicios] = useState([])   // catálogo
   const [clinica, setClinica]     = useState(null)
-  const [comprobante, setComprobante] = useState(null) // datos para el ticket tras cobrar
   const [citaInfo, setCitaInfo]   = useState(null)     // datos de la cita cargada (modo edición)
   const [busqueda, setBusqueda]   = useState('')
   const [pacientes, setPacientes] = useState([])
@@ -54,19 +46,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
   const [modalNuevoPac, setModalNuevoPac] = useState(false)  // modal registro completo de paciente
   const [proxHC, setProxHC] = useState(null)                 // próximo N° historia para el nuevo
 
-  // Cobro. Al crear: efectivo por defecto. Al editar: 'no_pago' para no cobrar
-  // por accidente al solo guardar cambios (se elige el método para cobrar).
-  const [metodoPago, setMetodoPago]         = useState(editando ? 'no_pago' : 'efectivo')
-  const [referenciaPago, setReferenciaPago] = useState('')
-  const [descuentoBs, setDescuentoBs]       = useState(0)   // descuento neto en Bs. (solo al crear)
-  // Saldo pendiente de la cita al editar (permite cobrar en varias veces)
-  const saldoCita = editando ? Math.max(0, parseFloat(cita?.saldo ?? 0)) : 0
-  const [montoAbono, setMontoAbono]         = useState(() => editando ? Math.max(0, parseFloat(cita?.saldo ?? 0)) : 0)
-
   const totalServicios = selServicios.reduce((s, l) => s + (parseFloat(l.precio_cobrado) || 0), 0)
-  const descuentoMonto = Math.min(Math.max(parseFloat(descuentoBs) || 0, 0), totalServicios)
-  const totalCobrar    = Math.max(0, totalServicios - descuentoMonto)
-  const abonoValido    = Math.min(Math.max(parseFloat(montoAbono) || 0, 0), saldoCita)
 
   // Catálogo de doctores, servicios e info de la clínica (para el comprobante)
   useEffect(() => {
@@ -137,34 +117,6 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     }
   }
 
-  // ¿Se va a registrar un pago ahora?
-  // - Al crear: cobra el total de servicios.
-  // - Al editar: cobra un abono contra el saldo pendiente (se puede varias veces).
-  const vaCobrar = metodoPago !== 'no_pago' && (editando
-    ? (!cita?.pagado && abonoValido > 0)
-    : totalServicios > 0)
-
-  // Arma la pantalla de comprobante (para imprimir) tras cobrar
-  async function mostrarComprobante(pago) {
-    let pac = { nombre: busqueda }
-    try { const { data } = await api.get(`/pacientes/${form.paciente_id}`); pac = data } catch { /* no crítico */ }
-    const doctorNombre = citaInfo?.doctor_nombre ||
-      doctores.find(d => String(d.id) === String(form.doctor_id))?.nombre
-    setComprobante({
-      pago,
-      servicios:       selServicios.map(s => ({ nombre: s._nombre, precio: parseFloat(s.precio_cobrado) || 0 })),
-      subtotal:        totalServicios,
-      descuento_monto: descuentoMonto,
-      total:           totalCobrar,
-      metodo_pago:     metodoPago,
-      referencia:      referenciaPago,
-      paciente:        pac,
-      doctorNombre,
-      fecha:           form.fecha,
-      hora:            form.hora,
-    })
-  }
-
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.paciente_id) return toast.error('Selecciona un paciente')
@@ -178,50 +130,21 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         notas:          s.notas || null,
       })),
     }
-    if (!editando && vaCobrar) {
-      payload.cobro = {
-        metodo_pago:     metodoPago,
-        descuento_monto: descuentoMonto,
-        referencia:      referenciaPago || null,
-      }
-    }
 
     setLoading(true)
     try {
       if (editando) {
         await api.put(`/citas/${cita.id}`, payload)
-
-        // Registrar un abono contra el saldo (cobrar en una o varias veces)
-        if (vaCobrar) {
-          const { data } = await api.post('/pagos/abono', {
-            cita_id:     cita.id,
-            monto:       abonoValido,
-            metodo_pago: metodoPago,
-            referencia:  referenciaPago || null,
-          })
-          toast.success(data.completo
-            ? `Pago completado — cobrado Bs. ${Number(data.abono).toFixed(2)}`
-            : `Cobrado Bs. ${Number(data.abono).toFixed(2)} — falta Bs. ${Number(data.saldo_restante).toFixed(2)}`)
-        } else {
-          toast.success('Cita actualizada')
-        }
-        onGuardada()
-        return
-      }
-
-      const { data: nuevaCita } = await api.post('/citas', payload)
-
-      if (vaCobrar && nuevaCita.pago) {
-        await mostrarComprobante(nuevaCita.pago)
-        toast.success(`Cita registrada y cobrada — Bs. ${totalCobrar.toFixed(2)}`)
+        toast.success('Cita actualizada')
       } else {
+        await api.post('/citas', payload)
         toast.success(
-          metodoPago === 'no_pago' && totalServicios > 0
+          totalServicios > 0
             ? `Cita agendada — queda por cobrar Bs. ${totalServicios.toFixed(2)}`
             : 'Cita programada correctamente'
         )
-        onGuardada()
       }
+      onGuardada()
     } catch (err) {
       toast.error(err.response?.data?.error || 'Error al guardar la cita')
     } finally {
@@ -229,25 +152,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     }
   }
 
-  function handleImprimir(formato = 'ticket') {
-    imprimirTicketCita({
-      clinica,
-      pago:            comprobante.pago,
-      paciente:        comprobante.paciente,
-      doctorNombre:    comprobante.doctorNombre,
-      fecha:           comprobante.fecha,
-      hora:            comprobante.hora,
-      servicios:       comprobante.servicios,
-      subtotal:        comprobante.subtotal,
-      descuento_monto: comprobante.descuento_monto,
-      total:           comprobante.total,
-      metodo_pago:     comprobante.metodo_pago,
-      referencia:      comprobante.referencia,
-      cajeroNombre:    usuario?.nombre,
-    }, { formato })
-  }
-
-  // Imprimir el comprobante de la cita. Si tiene cobro registrado usa esos datos;
+  // Reimprimir el comprobante de la cita. Si tiene cobro registrado usa esos datos;
   // si no, imprime igual con los servicios de la cita.
   async function handleReimprimir(formato = 'ticket') {
     let data = null
@@ -257,7 +162,6 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
       doctores.find(d => String(d.id) === String(form.doctor_id))?.nombre
 
     if (data && data.pago) {
-      // Con cobro registrado
       const pg = data.pago
       imprimirTicketCita({
         clinica,
@@ -275,7 +179,6 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         cajeroNombre:    usuario?.nombre,
       }, { formato })
     } else {
-      // Sin cobro: imprimir con los servicios de la cita
       imprimirTicketCita({
         clinica,
         pago: { id: cita.id, creado_en: new Date().toISOString() },
@@ -292,65 +195,6 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         cajeroNombre:    usuario?.nombre,
       }, { formato })
     }
-  }
-
-  // Pantalla de confirmación con opción de imprimir (tras cobrar)
-  if (comprobante) {
-    return (
-      <div className="flex flex-col items-center gap-5 py-4 text-center">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-          <CheckCircle size={36} className="text-green-500" />
-        </div>
-        <div>
-          <p className="text-xl font-bold text-gray-800">{editando ? '¡Pago registrado!' : '¡Cita registrada y cobrada!'}</p>
-          <p className="text-gray-500 text-sm mt-1">
-            {comprobante.paciente?.nombre}
-            {' · '}
-            <span className="font-semibold text-green-600">Bs. {comprobante.total.toFixed(2)}</span>
-          </p>
-        </div>
-
-        <div className="w-full bg-gray-50 rounded-2xl p-4 text-left space-y-2">
-          {comprobante.servicios.map((s, i) => (
-            <div key={i} className="flex justify-between text-sm">
-              <span className="text-gray-600">{s.nombre}</span>
-              <span className="font-medium">Bs. {s.precio.toFixed(2)}</span>
-            </div>
-          ))}
-          {comprobante.descuento_monto > 0 && (
-            <div className="flex justify-between text-sm text-red-500">
-              <span>Descuento</span>
-              <span>− Bs. {comprobante.descuento_monto.toFixed(2)}</span>
-            </div>
-          )}
-          <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2">
-            <span>Total</span>
-            <span className="text-green-600">Bs. {comprobante.total.toFixed(2)}</span>
-          </div>
-          <p className="text-xs text-gray-400 pt-1">
-            Método: {METODOS_PAGO.find(m => m.key === comprobante.metodo_pago)?.label || comprobante.metodo_pago}
-            {comprobante.referencia ? ` · Ref: ${comprobante.referencia}` : ''}
-          </p>
-        </div>
-
-        <div className="w-full space-y-2">
-          <div className="flex gap-2">
-            <button onClick={() => handleImprimir('ticket')}
-              className="flex-1 flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-xl font-semibold text-sm transition">
-              <Printer size={16} /> Imprimir ticket
-            </button>
-            <button onClick={() => handleImprimir('carta')}
-              className="flex-1 flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-xl font-semibold text-sm transition">
-              <Printer size={16} /> Imprimir Carta
-            </button>
-          </div>
-          <button onClick={onGuardada}
-            className="w-full border border-gray-300 hover:bg-gray-50 text-gray-700 py-3 rounded-xl font-semibold text-sm transition">
-            Listo
-          </button>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -472,102 +316,9 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
           />
 
           <p className="text-[11px] text-gray-400 -mt-2">
-            El precio se trae del catálogo y podés ajustarlo aquí mismo (descuentos o precio variable).
+            El precio se trae del catálogo y podés ajustarlo aquí mismo. El cobro se hace
+            aparte con el botón <strong>Cobrar</strong> en la lista de citas.
           </p>
-
-          {/* Aviso: cita ya cobrada por completo (al editar) */}
-          {editando && cita?.pagado && (
-            <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-3.5 py-2.5 text-sm text-green-700 font-medium">
-              <CheckCircle size={16} /> Esta cita ya está pagada por completo
-            </div>
-          )}
-
-          {/* Cobro — al crear la cita, o cobrar/abonar el saldo al editar */}
-          {((!editando && totalServicios > 0) || (editando && !cita?.pagado && saldoCita > 0)) && (
-            <div className="border border-gray-200 rounded-xl p-3.5 space-y-3">
-              <div className="flex items-center gap-2">
-                <CreditCard size={15} className="text-blue-600" />
-                <span className="text-sm font-semibold text-gray-700">
-                  {editando ? 'Registrar pago' : 'Pago'}
-                </span>
-              </div>
-
-              {/* Al editar: mostrar el saldo pendiente */}
-              {editando && (
-                <div className="flex items-center justify-between bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2">
-                  <span className="text-xs text-yellow-800 font-medium">Saldo pendiente</span>
-                  <span className="text-base font-bold text-yellow-800">Bs. {saldoCita.toFixed(2)}</span>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Método de pago <span className="text-red-500">*</span></label>
-                <div className="grid grid-cols-4 gap-2">
-                  {METODOS_PAGO.map(m => (
-                    <button key={m.key} type="button" onClick={() => setMetodoPago(m.key)}
-                      className={`py-2 rounded-lg text-xs font-medium border transition
-                        ${metodoPago === m.key
-                          ? 'bg-blue-700 text-white border-blue-700'
-                          : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {['qr','seguro'].includes(metodoPago) && (
-                <input type="text" value={referenciaPago}
-                  onChange={e => setReferenciaPago(e.target.value)}
-                  placeholder={metodoPago === 'seguro' ? 'Nro. póliza / autorización' : 'Nro. de comprobante / referencia'}
-                  className={INPUT} />
-              )}
-
-              {metodoPago === 'no_pago' ? (
-                <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                  <span className="text-xs text-amber-700 font-medium">
-                    {editando ? 'No se cobra ahora — queda el saldo pendiente' : 'Se agenda sin cobrar — queda pendiente en caja'}
-                  </span>
-                </div>
-              ) : editando ? (
-                /* EDITAR: cobrar un monto (abono) contra el saldo, se puede varias veces */
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-gray-500">Cobrar ahora Bs.</span>
-                    <input type="number" min="0" step="1" value={montoAbono}
-                      onChange={e => setMontoAbono(e.target.value)}
-                      className="w-28 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[11px] text-gray-400">Quedaría faltando</p>
-                    <p className="text-sm font-bold text-yellow-700">Bs. {(saldoCita - abonoValido).toFixed(2)}</p>
-                  </div>
-                </div>
-              ) : (
-                /* CREAR: total con descuento */
-                <>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-gray-500">Descuento Bs.</span>
-                      <span className="text-xs text-gray-400">−</span>
-                      <input type="number" min="0" step="1" value={descuentoBs}
-                        onChange={e => setDescuentoBs(e.target.value)}
-                        placeholder="0"
-                        className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[11px] text-gray-400">Total a cobrar</p>
-                      <p className="text-lg font-bold text-green-600">Bs. {totalCobrar.toFixed(2)}</p>
-                    </div>
-                  </div>
-                  {descuentoMonto > 0 && (
-                    <p className="text-[11px] text-gray-400 text-right -mt-1">
-                      {totalServicios.toFixed(2)} − {descuentoMonto.toFixed(2)} de descuento
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          )}
 
           <div>
             <label className={LABEL}>Motivo</label>
@@ -592,7 +343,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
         <div className="flex items-center gap-2 text-gray-400 text-xs flex-1">
           <ClipboardList size={14} />
           {selServicios.length > 0
-            ? `${selServicios.length} servicio(s) · Bs. ${selServicios.reduce((s, l) => s + (parseFloat(l.precio_cobrado) || 0), 0).toFixed(2)}`
+            ? `${selServicios.length} servicio(s) · Bs. ${totalServicios.toFixed(2)}`
             : 'Sin servicios registrados'}
         </div>
         {editando && (
@@ -608,17 +359,8 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
           </>
         )}
         <button type="submit" disabled={loading}
-          className={`text-white px-8 py-3 rounded-xl font-semibold text-sm transition shadow-sm disabled:opacity-60
-            ${vaCobrar ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-700 hover:bg-blue-800'}`}>
-          {loading
-            ? 'Guardando...'
-            : vaCobrar
-              ? `Cobrar Bs. ${(editando ? abonoValido : totalCobrar).toFixed(2)}`
-              : editando
-                ? 'Guardar cambios'
-                : totalServicios > 0
-                  ? `Agendar sin pago (Bs. ${totalServicios.toFixed(2)} por cobrar)`
-                  : 'Programar Cita'}
+          className="bg-blue-700 hover:bg-blue-800 text-white px-8 py-3 rounded-xl font-semibold text-sm transition shadow-sm disabled:opacity-60">
+          {loading ? 'Guardando...' : editando ? 'Guardar cambios' : 'Programar Cita'}
         </button>
       </div>
     </form>
