@@ -115,6 +115,67 @@ export default function ReportesClinica() {
     }
   }
 
+  // Reporte de caja: todos los pacientes atendidos con TODA su información + montos
+  const [exportandoCaja, setExportandoCaja] = useState(false)
+  async function descargarReporteCaja() {
+    setExportandoCaja(true)
+    try {
+      const { data: citas } = await api.get(`/citas?fecha_desde=${fechaDesde}&fecha_hasta=${fechaHasta}`)
+      const rows = citas.filter(c =>
+        !['cancelada', 'no_asistio', 'anulado'].includes(c.estado) &&
+        (parseFloat(c.total_servicios) > 0 || c.estado === 'atendida' || c.pago_total > 0)
+      )
+      if (!rows.length) { toast('No hay pacientes atendidos en el período'); return }
+
+      const ESTADO_PAGO = { completo: 'Completo', parcial: 'Faltante', por_cobrar: 'Por cobrar', sin_costo: 'Sin costo' }
+      const edad = fn => {
+        if (!fn) return ''
+        const a = Math.floor((new Date() - new Date(String(fn).slice(0,10) + 'T12:00:00')) / (365.25*24*3600*1000))
+        return (a >= 0 && a < 130) ? String(a) : ''
+      }
+      const encabezados = [
+        'Fecha', 'Hora', 'N° Historia', 'Paciente', 'Carnet', 'Sexo', 'Edad', 'Teléfono', 'Tel. alt.',
+        'Correo', 'Dirección', 'Estado civil', 'Ocupación', 'Doctor', 'Tipo', 'Servicios',
+        'Estado cita', 'Estado pago', 'Método pago', 'Precio (Bs)', 'Cobrado (Bs)', 'Saldo (Bs)',
+      ]
+      const filas = rows.map(c => {
+        const precio  = parseFloat(c.total_servicios || 0)
+        const cobrado = parseFloat(c.pago_total || 0)
+        const saldo   = parseFloat(c.saldo ?? Math.max(0, precio - cobrado))
+        return [
+          String(c.fecha).slice(0, 10),
+          c.hora ? String(c.hora).slice(0, 5) : '',
+          c.nro_historia ?? '',
+          c.paciente_nombre || '',
+          c.carnet || '',
+          c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Femenino' : '',
+          edad(c.fecha_nacimiento),
+          c.telefono || '',
+          c.telefono_alt || '',
+          c.email || '',
+          c.direccion || '',
+          c.estado_civil || '',
+          c.ocupacion || '',
+          c.doctor_nombre || '',
+          c.tipo || '',
+          c.servicios_nombres || '',
+          (c.estado || '').replace('_', ' '),
+          ESTADO_PAGO[c.estado_pago] || '',
+          c.pago_metodo || '',
+          precio.toFixed(2),
+          cobrado.toFixed(2),
+          saldo.toFixed(2),
+        ]
+      })
+      exportarExcel(`reporte_caja_${fechaDesde}_a_${fechaHasta}`, encabezados, filas)
+      toast.success(`${rows.length} pacientes en el reporte de caja`)
+    } catch {
+      toast.error('Error al generar el reporte de caja')
+    } finally {
+      setExportandoCaja(false)
+    }
+  }
+
   const maxServicio  = data ? Math.max(...data.por_servicio.map(s => parseFloat(s.total)), 1) : 1
   const maxDoctor    = data ? Math.max(...data.por_doctor.map(d => parseInt(d.atenciones)), 1) : 1
   const totalCitas   = data ? data.por_estado.reduce((s, e) => s + parseInt(e.cantidad), 0) : 0
@@ -155,6 +216,11 @@ export default function ReportesClinica() {
           className="flex items-center gap-2 px-5 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl text-sm font-medium transition ml-auto">
           <Download size={16} />
           {exportando ? 'Generando...' : 'Descargar Excel'}
+        </button>
+        <button onClick={descargarReporteCaja} disabled={exportandoCaja}
+          className="flex items-center gap-2 px-5 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:bg-emerald-500 text-white rounded-xl text-sm font-medium transition">
+          <Download size={16} />
+          {exportandoCaja ? 'Generando...' : 'Reporte de caja'}
         </button>
       </div>
 

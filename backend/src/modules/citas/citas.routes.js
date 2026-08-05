@@ -29,7 +29,9 @@ router.get('/', async (req, res) => {
 
     const r = await db(req).query(
       `SELECT c.*,
-              p.nombre  AS paciente_nombre, p.carnet,
+              p.nombre  AS paciente_nombre, p.carnet, p.nro_historia,
+              p.telefono, p.telefono_alt, p.sexo, p.fecha_nacimiento,
+              p.direccion, p.email, p.estado_civil, p.ocupacion,
               d.nombre  AS doctor_nombre,
               COALESCE(srv.total_servicios, 0) AS total_servicios,
               COALESCE(srv.total_catalogo, 0)  AS total_catalogo,
