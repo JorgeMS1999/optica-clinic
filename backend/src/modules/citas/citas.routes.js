@@ -31,19 +31,29 @@ router.get('/', async (req, res) => {
       `SELECT c.*,
               p.nombre  AS paciente_nombre, p.carnet,
               d.nombre  AS doctor_nombre,
-              (pg.id IS NOT NULL)              AS pagado,
-              COALESCE(pg.total, 0)            AS pago_total,
-              pg.metodo_pago                   AS pago_metodo,
               COALESCE(srv.total_servicios, 0) AS total_servicios,
               COALESCE(srv.total_catalogo, 0)  AS total_catalogo,
-              srv.servicios_nombres            AS servicios_nombres
+              srv.servicios_nombres            AS servicios_nombres,
+              COALESCE(pg.cobrado, 0)          AS pago_total,
+              COALESCE(pg.cubierto, 0)         AS pago_cubierto,
+              pg.ultimo_metodo                 AS pago_metodo,
+              GREATEST(0, COALESCE(srv.total_servicios,0) - COALESCE(pg.cubierto,0)) AS saldo,
+              CASE
+                WHEN COALESCE(srv.total_servicios,0) = 0        THEN 'sin_costo'
+                WHEN COALESCE(pg.cubierto,0) <= 0               THEN 'por_cobrar'
+                WHEN COALESCE(pg.cubierto,0) >= COALESCE(srv.total_servicios,0) THEN 'completo'
+                ELSE 'parcial'
+              END AS estado_pago,
+              (COALESCE(pg.cubierto,0) >= COALESCE(srv.total_servicios,0)
+                 AND COALESCE(srv.total_servicios,0) > 0)       AS pagado
        FROM citas c
        JOIN pacientes p ON p.id = c.paciente_id
        JOIN doctores  d ON d.id = c.doctor_id
        LEFT JOIN LATERAL (
-         SELECT id, total, metodo_pago FROM pagos
-         WHERE cita_id = c.id AND estado = 'pagado'
-         ORDER BY id DESC LIMIT 1
+         SELECT COALESCE(SUM(total),0)    AS cobrado,
+                COALESCE(SUM(subtotal),0) AS cubierto,
+                (array_agg(metodo_pago ORDER BY id DESC))[1] AS ultimo_metodo
+         FROM pagos WHERE cita_id = c.id AND estado = 'pagado'
        ) pg ON TRUE
        LEFT JOIN LATERAL (
          SELECT COALESCE(SUM(cs.precio_cobrado), 0) AS total_servicios,

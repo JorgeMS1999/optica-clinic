@@ -58,11 +58,15 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
   // por accidente al solo guardar cambios (se elige el método para cobrar).
   const [metodoPago, setMetodoPago]         = useState(editando ? 'no_pago' : 'efectivo')
   const [referenciaPago, setReferenciaPago] = useState('')
-  const [descuentoBs, setDescuentoBs]       = useState(0)   // descuento neto en Bs.
+  const [descuentoBs, setDescuentoBs]       = useState(0)   // descuento neto en Bs. (solo al crear)
+  // Saldo pendiente de la cita al editar (permite cobrar en varias veces)
+  const saldoCita = editando ? Math.max(0, parseFloat(cita?.saldo ?? 0)) : 0
+  const [montoAbono, setMontoAbono]         = useState(() => editando ? Math.max(0, parseFloat(cita?.saldo ?? 0)) : 0)
 
   const totalServicios = selServicios.reduce((s, l) => s + (parseFloat(l.precio_cobrado) || 0), 0)
   const descuentoMonto = Math.min(Math.max(parseFloat(descuentoBs) || 0, 0), totalServicios)
   const totalCobrar    = Math.max(0, totalServicios - descuentoMonto)
+  const abonoValido    = Math.min(Math.max(parseFloat(montoAbono) || 0, 0), saldoCita)
 
   // Catálogo de doctores, servicios e info de la clínica (para el comprobante)
   useEffect(() => {
@@ -133,8 +137,12 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
     }
   }
 
-  // ¿Se va a registrar un pago ahora? (no si ya está pagada al editar)
-  const vaCobrar = totalServicios > 0 && metodoPago !== 'no_pago' && !(editando && cita?.pagado)
+  // ¿Se va a registrar un pago ahora?
+  // - Al crear: cobra el total de servicios.
+  // - Al editar: cobra un abono contra el saldo pendiente (se puede varias veces).
+  const vaCobrar = metodoPago !== 'no_pago' && (editando
+    ? (!cita?.pagado && abonoValido > 0)
+    : totalServicios > 0)
 
   // Arma la pantalla de comprobante (para imprimir) tras cobrar
   async function mostrarComprobante(pago) {
@@ -183,27 +191,21 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
       if (editando) {
         await api.put(`/citas/${cita.id}`, payload)
 
-        // Registrar el pago ahora (cita que estaba "por cobrar")
+        // Registrar un abono contra el saldo (cobrar en una o varias veces)
         if (vaCobrar) {
-          const { data: pago } = await api.post('/pagos', {
+          const { data } = await api.post('/pagos/abono', {
             cita_id:     cita.id,
-            paciente_id: form.paciente_id,
-            servicios:   selServicios.map(s => ({
-              servicio_id:     s.servicio_id,
-              cantidad:        1,
-              precio_unitario: parseFloat(s.precio_cobrado) || 0,
-              descuento_item:  0,
-            })),
-            descuento_monto: descuentoMonto,
-            metodo_pago:     metodoPago,
-            referencia:      referenciaPago || null,
+            monto:       abonoValido,
+            metodo_pago: metodoPago,
+            referencia:  referenciaPago || null,
           })
-          await mostrarComprobante(pago)
-          toast.success(`Pago registrado — Bs. ${totalCobrar.toFixed(2)}`)
+          toast.success(data.completo
+            ? `Pago completado — cobrado Bs. ${Number(data.abono).toFixed(2)}`
+            : `Cobrado Bs. ${Number(data.abono).toFixed(2)} — falta Bs. ${Number(data.saldo_restante).toFixed(2)}`)
         } else {
           toast.success('Cita actualizada')
-          onGuardada()
         }
+        onGuardada()
         return
       }
 
@@ -473,15 +475,15 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
             El precio se trae del catálogo y podés ajustarlo aquí mismo (descuentos o precio variable).
           </p>
 
-          {/* Aviso: cita ya cobrada (al editar) */}
+          {/* Aviso: cita ya cobrada por completo (al editar) */}
           {editando && cita?.pagado && (
             <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-3.5 py-2.5 text-sm text-green-700 font-medium">
-              <CheckCircle size={16} /> Esta cita ya está cobrada
+              <CheckCircle size={16} /> Esta cita ya está pagada por completo
             </div>
           )}
 
-          {/* Cobro — al crear la cita o al cobrar una cita "por cobrar" al editar */}
-          {totalServicios > 0 && !(editando && cita?.pagado) && (
+          {/* Cobro — al crear la cita, o cobrar/abonar el saldo al editar */}
+          {((!editando && totalServicios > 0) || (editando && !cita?.pagado && saldoCita > 0)) && (
             <div className="border border-gray-200 rounded-xl p-3.5 space-y-3">
               <div className="flex items-center gap-2">
                 <CreditCard size={15} className="text-blue-600" />
@@ -489,6 +491,14 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
                   {editando ? 'Registrar pago' : 'Pago'}
                 </span>
               </div>
+
+              {/* Al editar: mostrar el saldo pendiente */}
+              {editando && (
+                <div className="flex items-center justify-between bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2">
+                  <span className="text-xs text-yellow-800 font-medium">Saldo pendiente</span>
+                  <span className="text-base font-bold text-yellow-800">Bs. {saldoCita.toFixed(2)}</span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">Método de pago <span className="text-red-500">*</span></label>
@@ -513,14 +523,27 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
               )}
 
               {metodoPago === 'no_pago' ? (
-                <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                  <span className="text-xs text-amber-700 font-medium">Se agenda sin cobrar — queda pendiente en caja</span>
+                <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                  <span className="text-xs text-amber-700 font-medium">
+                    {editando ? 'No se cobra ahora — queda el saldo pendiente' : 'Se agenda sin cobrar — queda pendiente en caja'}
+                  </span>
+                </div>
+              ) : editando ? (
+                /* EDITAR: cobrar un monto (abono) contra el saldo, se puede varias veces */
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-gray-500">Cobrar ahora Bs.</span>
+                    <input type="number" min="0" step="1" value={montoAbono}
+                      onChange={e => setMontoAbono(e.target.value)}
+                      className="w-28 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  </div>
                   <div className="text-right">
-                    <p className="text-[11px] text-amber-600">Por cobrar</p>
-                    <p className="text-lg font-bold text-amber-700">Bs. {totalServicios.toFixed(2)}</p>
+                    <p className="text-[11px] text-gray-400">Quedaría faltando</p>
+                    <p className="text-sm font-bold text-yellow-700">Bs. {(saldoCita - abonoValido).toFixed(2)}</p>
                   </div>
                 </div>
               ) : (
+                /* CREAR: total con descuento */
                 <>
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-1.5">
@@ -590,7 +613,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
           {loading
             ? 'Guardando...'
             : vaCobrar
-              ? `Cobrar Bs. ${totalCobrar.toFixed(2)}`
+              ? `Cobrar Bs. ${(editando ? abonoValido : totalCobrar).toFixed(2)}`
               : editando
                 ? 'Guardar cambios'
                 : totalServicios > 0

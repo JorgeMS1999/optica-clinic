@@ -173,15 +173,16 @@ router.get('/reporte', async (req, res) => {
            (SELECT COUNT(*) FROM citas c
               WHERE c.fecha BETWEEN $1 AND $2
                 AND c.estado NOT IN ('cancelada','no_asistio','anulado')
-                AND EXISTS (SELECT 1 FROM cita_servicios cs WHERE cs.cita_id = c.id)
-                AND NOT EXISTS (SELECT 1 FROM pagos pg WHERE pg.cita_id = c.id AND pg.estado='pagado')
+                AND COALESCE((SELECT SUM(precio_cobrado) FROM cita_servicios WHERE cita_id=c.id),0)
+                    > COALESCE((SELECT SUM(subtotal) FROM pagos WHERE cita_id=c.id AND estado='pagado'),0)
            ) AS citas_por_cobrar,
-           (SELECT COALESCE(SUM(cs.precio_cobrado),0)
-              FROM cita_servicios cs
-              JOIN citas c ON c.id = cs.cita_id
+           (SELECT COALESCE(SUM(saldo),0) FROM (
+              SELECT COALESCE((SELECT SUM(precio_cobrado) FROM cita_servicios WHERE cita_id=c.id),0)
+                     - COALESCE((SELECT SUM(subtotal) FROM pagos WHERE cita_id=c.id AND estado='pagado'),0) AS saldo
+              FROM citas c
               WHERE c.fecha BETWEEN $1 AND $2
                 AND c.estado NOT IN ('cancelada','no_asistio','anulado')
-                AND NOT EXISTS (SELECT 1 FROM pagos pg WHERE pg.cita_id = c.id AND pg.estado='pagado')
+            ) t WHERE saldo > 0
            ) AS monto_por_cobrar`,
         [desde, hasta]
       ),
@@ -333,13 +334,15 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'cajero', 'coordinad
       return res.status(400).json({ error: 'Datos incompletos' })
     }
 
-    // Verificar que la cita no tenga pago activo
-    const existe = await client.query(
-      `SELECT id FROM pagos WHERE cita_id=$1 AND estado!='anulado'`, [cita_id]
+    // Verificar que la cita no esté ya cubierta por completo (permite abonos/cuotas)
+    const saldoRes = await client.query(
+      `SELECT COALESCE((SELECT SUM(precio_cobrado) FROM cita_servicios WHERE cita_id=$1),0)
+              - COALESCE((SELECT SUM(subtotal) FROM pagos WHERE cita_id=$1 AND estado='pagado'),0) AS saldo`,
+      [cita_id]
     )
-    if (existe.rows[0]) {
+    if (parseFloat(saldoRes.rows[0].saldo) <= 0) {
       await client.query('ROLLBACK')
-      return res.status(400).json({ error: 'Esta cita ya tiene un pago registrado' })
+      return res.status(400).json({ error: 'Esta cita ya está pagada por completo' })
     }
 
     // Calcular totales
@@ -388,6 +391,72 @@ router.post('/', requireRole('superadmin', 'admin_clinica', 'cajero', 'coordinad
   } catch (err) {
     await client.query('ROLLBACK')
     console.error(err)
+    res.status(500).json({ error: err.message })
+  } finally {
+    client.release()
+  }
+})
+
+// Registrar un abono/cuota hacia el saldo de una cita.
+// Crea un pago por el monto indicado (no puede exceder el saldo pendiente).
+router.post('/abono', requireRole('superadmin', 'admin_clinica', 'cajero', 'coordinadora'), async (req, res) => {
+  const client = await db(req).getClient()
+  try {
+    await client.query('BEGIN')
+    const { cita_id, monto, metodo_pago, referencia, notas } = req.body
+    if (!cita_id || !metodo_pago || !(parseFloat(monto) > 0)) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ error: 'Datos incompletos' })
+    }
+
+    // paciente + saldo pendiente de la cita
+    const info = await client.query(
+      `SELECT c.paciente_id,
+              COALESCE((SELECT SUM(precio_cobrado) FROM cita_servicios WHERE cita_id=c.id),0) AS total_srv,
+              COALESCE((SELECT SUM(subtotal) FROM pagos WHERE cita_id=c.id AND estado='pagado'),0) AS cubierto
+       FROM citas c WHERE c.id=$1`, [cita_id]
+    )
+    if (!info.rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Cita no encontrada' }) }
+    const { paciente_id, total_srv, cubierto } = info.rows[0]
+    const saldo = parseFloat(total_srv) - parseFloat(cubierto)
+    if (saldo <= 0) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'La cita ya está pagada por completo' }) }
+
+    const abono = Math.min(parseFloat(monto), saldo)   // nunca cobrar de más
+
+    const pagoRes = await client.query(
+      `INSERT INTO pagos
+         (cita_id, paciente_id, cajero_id, subtotal, descuento_pct, descuento_monto, total, metodo_pago, referencia, notas)
+       VALUES ($1,$2,$3,$4,0,0,$4,$5,$6,$7) RETURNING *`,
+      [cita_id, paciente_id, req.user.id, abono, metodo_pago, referencia || null, notas || null]
+    )
+    const pago = pagoRes.rows[0]
+
+    // Repartir el abono entre los servicios de la cita (proporcional), para el detalle.
+    const srv = await client.query(
+      `SELECT servicio_id, precio_cobrado FROM cita_servicios WHERE cita_id=$1 AND precio_cobrado > 0`, [cita_id]
+    )
+    const totalSrv = srv.rows.reduce((s, r) => s + parseFloat(r.precio_cobrado), 0)
+    let restante = abono
+    for (let i = 0; i < srv.rows.length; i++) {
+      const s = srv.rows[i]
+      const parte = (i === srv.rows.length - 1)
+        ? restante
+        : Math.round((abono * (parseFloat(s.precio_cobrado) / totalSrv)) * 100) / 100
+      restante = Math.round((restante - parte) * 100) / 100
+      if (parte > 0) {
+        await client.query(
+          `INSERT INTO detalle_pago (pago_id, servicio_id, cantidad, precio_unitario, descuento_item, subtotal)
+           VALUES ($1,$2,1,$3,0,$3)`,
+          [pago.id, s.servicio_id, parte]
+        )
+      }
+    }
+
+    const saldoRestante = Math.round((saldo - abono) * 100) / 100
+    await client.query('COMMIT')
+    res.status(201).json({ pago, abono, saldo_restante: saldoRestante, completo: saldoRestante <= 0 })
+  } catch (err) {
+    await client.query('ROLLBACK')
     res.status(500).json({ error: err.message })
   } finally {
     client.release()

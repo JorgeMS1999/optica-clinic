@@ -190,24 +190,25 @@ export default function Citas() {
                   </td>
                   <td className="px-3 py-3"><Badge value={c.estado} /></td>
                   <td className="px-3 py-3 whitespace-nowrap">
-                    {c.pagado ? (
+                    {INACTIVOS.includes(c.estado) ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400">—</span>
+                    ) : c.estado_pago === 'completo' ? (
                       <>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                          Pagado
-                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Pagado</span>
                         <p className="text-[11px] text-gray-400 mt-0.5">Bs. {parseFloat(c.pago_total).toFixed(2)}</p>
                       </>
-                    ) : (!INACTIVOS.includes(c.estado) && parseFloat(c.total_servicios) > 0) ? (
+                    ) : c.estado_pago === 'parcial' ? (
                       <>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                          Por cobrar
-                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">Faltante</span>
+                        <p className="text-[11px] text-gray-500 mt-0.5">Pagó {parseFloat(c.pago_total).toFixed(0)} · falta Bs. {parseFloat(c.saldo).toFixed(2)}</p>
+                      </>
+                    ) : c.estado_pago === 'por_cobrar' ? (
+                      <>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Por cobrar</span>
                         <p className="text-[11px] text-gray-400 mt-0.5">Bs. {parseFloat(c.total_servicios).toFixed(2)}</p>
                       </>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400">
-                        —
-                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400">—</span>
                     )}
                   </td>
                   <td className="px-3 py-3">
