@@ -27,6 +27,7 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   } = datos
   const formato = opts.formato === 'carta' ? 'carta' : 'ticket'
   const esCirugia = tipo === 'cirugia'   // solo cirugías llevan firmas y sin "cortar aquí"
+  const logoUrl = (typeof window !== 'undefined' ? window.location.origin : '') + '/clinica-logo.png'
 
   const emitido = new Date(pago?.creado_en || Date.now())
   const { fecha: fechaStr, hora: horaStr } = fmtFecha(emitido)
@@ -55,6 +56,7 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   * { margin:0; padding:0; box-sizing:border-box; } html,body{background:#fff;}
   body { font-family:'Consolas','Courier New',monospace; font-size:12px; line-height:1.45; color:#000; width:80mm; margin:0 auto; padding:4mm 5mm; }
   .center{text-align:center;} .bold{font-weight:700;} .sub{font-size:11px;color:#444;}
+  .logo-t{height:13mm;width:auto;display:block;margin-bottom:3px;}
   .nombre{font-size:15px;font-weight:700;}
   .sep{border:none;border-top:1px dashed #000;margin:6px 0;}
   .meta{font-size:11px;} .meta-row{display:flex;justify-content:space-between;}
@@ -69,6 +71,7 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   .fline-t{border-top:1px solid #000;margin-bottom:2px;}
   @media print { @page { size:80mm auto; margin:0; } body{width:80mm;padding:3mm 5mm;} }
 </style></head><body>
+  <img class="logo-t" src="${logoUrl}" onerror="this.style.display='none'" alt=""/>
   <div class="center"><div class="nombre">${clinica?.nombre || 'Clínica'}</div>
     ${clinica?.direccion ? `<div class="sub">${clinica.direccion}</div>` : ''}
     ${clinica?.telefono ? `<div class="sub">Tel: ${clinica.telefono}</div>` : ''}</div>
@@ -114,6 +117,8 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   .firma { flex:1; }
   .fline { border-top:1px solid #000; margin-bottom:4px; }
   .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #1d6a35; padding-bottom:6px; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .logo-c { height:17mm; width:auto; }
   .cname { font-size:21px; font-weight:800; color:#1d6a35; }
   .csub  { font-size:13px; color:#555; margin-top:2px; }
   .rright { text-align:right; }
@@ -136,9 +141,12 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
 </style></head><body>
   <div class="media">
     <div class="head">
-      <div>
-        <div class="cname">${clinica?.nombre || 'Clínica'}</div>
-        <div class="csub">${clinica?.direccion || ''}${clinica?.telefono ? ' · Tel: ' + clinica.telefono : ''}</div>
+      <div class="brand">
+        <img class="logo-c" src="${logoUrl}" onerror="this.style.display='none'" alt=""/>
+        <div>
+          <div class="cname">${clinica?.nombre || 'Clínica'}</div>
+          <div class="csub">${clinica?.direccion || ''}${clinica?.telefono ? ' · Tel: ' + clinica.telefono : ''}</div>
+        </div>
       </div>
       <div class="rright">
         <div class="rlabel">COMPROBANTE</div>
