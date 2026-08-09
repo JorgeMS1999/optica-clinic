@@ -16,6 +16,7 @@ const fLotesRoutes       = require('./modules/farmacia/lotes.routes');
 const fVentasRoutes      = require('./modules/farmacia/ventas.routes');
 const fProveedoresRoutes = require('./modules/farmacia/proveedores.routes');
 const consultasRoutes    = require('./modules/consultas/consultas.routes');
+const cieRoutes          = require('./modules/cie/cie.routes');
 const adminReportesRoutes = require('./modules/admin/reportes.routes');
 
 const app  = express();
@@ -39,6 +40,7 @@ app.use('/api/farmacia/lotes',       fLotesRoutes);
 app.use('/api/farmacia/ventas',      fVentasRoutes);
 app.use('/api/farmacia/proveedores', fProveedoresRoutes);
 app.use('/api/consultas',            consultasRoutes);
+app.use('/api/cie',                  cieRoutes);
 app.use('/api/admin/reportes',       adminReportesRoutes);
 
 // Health check

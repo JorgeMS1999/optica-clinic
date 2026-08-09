@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Eye, Activity, Microscope, ClipboardList,
-  Stethoscope, CheckCircle, AlertTriangle, Save
+  Stethoscope, CheckCircle, AlertTriangle, Save, Search
 } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
@@ -39,6 +39,52 @@ function Campo({ label, children, className = '' }) {
 
 const INPUT = 'w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white'
 const TEXTAREA = `${INPUT} resize-none`
+
+/* ─────────── Buscador de códigos CIE-10 ─────────── */
+function BuscadorCIE({ onSelect, disabled }) {
+  const [q, setQ]           = useState('')
+  const [res, setRes]       = useState([])
+  const [abierto, setAbierto] = useState(false)
+
+  useEffect(() => {
+    if (q.trim().length < 2) { setRes([]); return }
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await api.get(`/cie?q=${encodeURIComponent(q)}`)
+        setRes(data); setAbierto(true)
+      } catch { setRes([]) }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [q])
+
+  if (disabled) return null
+  return (
+    <div className="relative mb-2">
+      <div className="relative">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          onFocus={() => res.length && setAbierto(true)}
+          placeholder="Buscar CIE-10 por código o enfermedad (ej: cataratas, H25, glaucoma)..."
+          className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+        />
+      </div>
+      {abierto && res.length > 0 && (
+        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+          {res.map(c => (
+            <button key={c.codigo} type="button"
+              onClick={() => { onSelect(c); setQ(''); setRes([]); setAbierto(false) }}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0 flex gap-2">
+              <span className="font-mono font-bold text-blue-700 shrink-0">{c.codigo}</span>
+              <span className="text-gray-700">{c.descripcion}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 /* ─────────────────── Tabla OD / OI ─────────────────── */
 function TablaOjos({ titulo, campos, form, setForm }) {
@@ -274,6 +320,16 @@ export default function Consulta() {
     return e => setForm(f => ({ ...f, [campo]: e.target.value }))
   }
 
+  // Agrega un código CIE-10 al diagnóstico (sin escribir a mano)
+  function agregarCIE(c) {
+    const texto = `${c.codigo} - ${c.descripcion}`
+    setForm(f => {
+      const actual = (f.diagnostico || '').replace(/\s+$/, '')
+      if (actual.includes(c.codigo)) return f   // evitar duplicados
+      return { ...f, diagnostico: actual ? `${actual}\n${texto}` : texto }
+    })
+  }
+
   async function handleGuardar(e) {
     e.preventDefault()
     if (!form.diagnostico.trim()) return toast.error('El diagnóstico es obligatorio')
@@ -499,9 +555,13 @@ export default function Consulta() {
       <Seccion icon={Stethoscope} titulo="Diagnóstico y Plan de Tratamiento" color="rose">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Campo label="Diagnóstico *" className="md:col-span-2">
+            <BuscadorCIE disabled={soloLectura} onSelect={agregarCIE} />
             <textarea rows={3} required value={form.diagnostico} onChange={set('diagnostico')}
               disabled={soloLectura} className={TEXTAREA}
-              placeholder="Diagnóstico principal y secundarios..." />
+              placeholder="Escribí a mano o usá el buscador CIE-10 de arriba..." />
+            {!soloLectura && (
+              <p className="text-[11px] text-gray-400 mt-1">Podés buscar el código CIE-10 y se agrega solo; igual podés editar el texto a mano.</p>
+            )}
           </Campo>
           <Campo label="Plan de tratamiento">
             <textarea rows={3} value={form.plan_tratamiento} onChange={set('plan_tratamiento')}
