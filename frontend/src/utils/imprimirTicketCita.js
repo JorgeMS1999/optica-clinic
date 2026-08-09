@@ -34,6 +34,9 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   const nroComp = String(pago?.id ?? 0).padStart(6, '0')
   const precioDe = s => parseFloat(s.precio ?? s.precio_cobrado ?? 0) || 0
   const nombreDe = s => s.nombre ?? s._nombre ?? 'Servicio'
+  // Antepone el tipo de atención al servicio, en la misma línea: "Consulta Reconsulta", "Cirugía Cataratas", etc.
+  const TIPO_LABEL = { consulta: 'Consulta', procedimiento: 'Procedimiento', cirugia: 'Cirugía' }
+  const etiquetaServicio = s => `${TIPO_LABEL[tipo] ? TIPO_LABEL[tipo] + ' ' : ''}${nombreDe(s)}`
 
   const html = formato === 'carta'
     ? htmlCarta()
@@ -48,7 +51,7 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   function htmlTicket() {
     const filas = servicios.map(s => `
       <div class="item">
-        <div class="item-nombre">${nombreDe(s)}</div>
+        <div class="item-nombre">${etiquetaServicio(s)}</div>
         <div class="item-detalle"><span></span><span class="bold">Bs. ${precioDe(s).toFixed(2)}</span></div>
       </div>`).join('')
     return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/><title>Comprobante #${nroComp}</title>
@@ -106,7 +109,7 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   // ───────────────── MEDIA HOJA CARTA ─────────────────
   function htmlCarta() {
     const filas = servicios.map(s => `
-      <tr><td>${nombreDe(s)}</td><td class="r">Bs. ${precioDe(s).toFixed(2)}</td></tr>`).join('')
+      <tr><td>${etiquetaServicio(s)}</td><td class="r">Bs. ${precioDe(s).toFixed(2)}</td></tr>`).join('')
     return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/><title>Comprobante #${nroComp}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; } html,body{background:#fff;}
