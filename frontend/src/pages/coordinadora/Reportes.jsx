@@ -46,10 +46,10 @@ const ESTADO_COLOR = {
 export default function ReportesClinica() {
   const [data,       setData]       = useState(null)
   const [loading,    setLoading]    = useState(false)
-  const [fechaDesde, setFechaDesde] = useState(() => {
-    const d = new Date(); d.setDate(1); return d.toLocaleDateString('en-CA')
-  })
+  // Por defecto: el día de hoy (los KPIs son del día; cambian con el filtro de fechas)
+  const [fechaDesde, setFechaDesde] = useState(new Date().toLocaleDateString('en-CA'))
   const [fechaHasta, setFechaHasta] = useState(new Date().toLocaleDateString('en-CA'))
+  const esUnDia = fechaDesde === fechaHasta
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -232,10 +232,12 @@ export default function ReportesClinica() {
         <>
           {/* Tarjetas resumen */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Total ingresos"   value={`Bs. ${parseFloat(data.summary.total_ingresos).toFixed(2)}`} color="green" />
+            <StatCard label={esUnDia ? 'Ingreso del día' : 'Ingreso del período'}
+              value={`Bs. ${parseFloat(data.summary.total_ingresos).toFixed(2)}`}
+              sub="dinero cobrado (sin deudas)" color="green" />
             <StatCard label="Pagos registrados" value={data.summary.total_pagos} sub="transacciones" color="blue" />
             <StatCard label="Promedio por pago" value={`Bs. ${parseFloat(data.summary.promedio).toFixed(2)}`} color="purple" />
-            <StatCard label="Total citas"       value={data.extra?.total_citas ?? totalCitas} sub="en el período" color="amber" />
+            <StatCard label="Total citas"       value={data.extra?.total_citas ?? totalCitas} sub={esUnDia ? 'del día' : 'en el período'} color="amber" />
           </div>
 
           {/* Tarjetas de actividad clínica */}
@@ -250,17 +252,17 @@ export default function ReportesClinica() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-amber-700">Monto por cobrar</p>
+                <p className="text-sm font-medium text-amber-700">Por cobrar {esUnDia ? 'del día' : 'del período'}</p>
                 <p className="text-3xl font-bold text-amber-700 mt-1">Bs. {parseFloat(data.extra?.monto_por_cobrar || 0).toFixed(2)}</p>
-                <p className="text-xs text-amber-600/70 mt-1">Servicios agendados aún sin pagar</p>
+                <p className="text-xs text-amber-600/70 mt-1">Deuda: servicios aún sin pagar</p>
               </div>
               <DollarSign size={40} className="text-amber-400" />
             </div>
             <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-orange-700">Citas por cobrar</p>
+                <p className="text-sm font-medium text-orange-700">Citas por cobrar {esUnDia ? 'del día' : 'del período'}</p>
                 <p className="text-3xl font-bold text-orange-700 mt-1">{data.extra?.citas_por_cobrar ?? 0}</p>
-                <p className="text-xs text-orange-600/70 mt-1">Agendadas sin registrar pago</p>
+                <p className="text-xs text-orange-600/70 mt-1">Con saldo pendiente</p>
               </div>
               <ClipboardList size={40} className="text-orange-400" />
             </div>
