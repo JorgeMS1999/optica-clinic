@@ -23,8 +23,10 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   const {
     clinica, pago, paciente, doctorNombre, fecha, hora, servicios = [],
     subtotal = 0, descuento_monto = 0, total = 0, metodo_pago, referencia, cajeroNombre,
+    tipo,
   } = datos
   const formato = opts.formato === 'carta' ? 'carta' : 'ticket'
+  const esCirugia = tipo === 'cirugia'   // solo cirugías llevan firmas y sin "cortar aquí"
 
   const emitido = new Date(pago?.creado_en || Date.now())
   const { fecha: fechaStr, hora: horaStr } = fmtFecha(emitido)
@@ -62,6 +64,9 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   .metodo{font-size:12px;margin-top:4px;}
   .footer{text-align:center;font-size:10.5px;color:#222;margin-top:6px;line-height:1.5;}
   .aviso{text-align:center;font-size:11px;font-weight:700;border:1px dashed #000;border-radius:5px;padding:5px 4px;margin:6px 0;line-height:1.4;}
+  .firmas-t{margin-top:12px;font-size:11px;text-align:center;}
+  .firma-t{margin-top:20px;}
+  .fline-t{border-top:1px solid #000;margin-bottom:2px;}
   @media print { @page { size:80mm auto; margin:0; } body{width:80mm;padding:3mm 5mm;} }
 </style></head><body>
   <div class="center"><div class="nombre">${clinica?.nombre || 'Clínica'}</div>
@@ -86,6 +91,10 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   ${metodo_pago ? `<div class="metodo">Pago: <span class="bold">${METODO_LABEL[metodo_pago] || metodo_pago}</span>${referencia ? ` · Ref: ${referencia}` : ''}</div>` : ''}
   <hr class="sep"/>
   <div class="aviso">CONSERVE Y TRAIGA ESTE COMPROBANTE<br/>La reconsulta es GRATUITA dentro de los 15 días</div>
+  ${esCirugia ? `<div class="firmas-t">
+    <div class="firma-t"><div class="fline-t"></div>Firma del responsable</div>
+    <div class="firma-t"><div class="fline-t"></div>Firma del paciente</div>
+  </div>` : ''}
   <div class="footer">${cajeroNombre ? `Atendido por: ${cajeroNombre}<br/>` : ''}¡Gracias por su visita!<br/>Válido como constancia de pago</div>
   <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}</script>
 </body></html>`
@@ -100,7 +109,10 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
   * { margin:0; padding:0; box-sizing:border-box; } html,body{background:#fff;}
   body { font-family:'Segoe UI',Arial,sans-serif; color:#111; }
   .media { width:100%; padding:10mm 12mm 6mm; }
-  .cut { border-top:1px dashed #999; text-align:center; color:#999; font-size:10px; padding-top:2px; margin-top:8mm; }
+  .cut { border-top:1px dashed #999; margin-top:8mm; }
+  .firmas { display:flex; justify-content:space-between; gap:40px; margin-top:14mm; font-size:12.5px; color:#333; text-align:center; }
+  .firma { flex:1; }
+  .fline { border-top:1px solid #000; margin-bottom:4px; }
   .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #1d6a35; padding-bottom:6px; }
   .cname { font-size:21px; font-weight:800; color:#1d6a35; }
   .csub  { font-size:13px; color:#555; margin-top:2px; }
@@ -152,7 +164,12 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
     ${metodo_pago ? `<div class="met">Pago: <b>${METODO_LABEL[metodo_pago] || metodo_pago}</b>${referencia ? ` · Ref: ${referencia}` : ''}</div>` : ''}
     <div class="aviso">CONSERVE Y TRAIGA ESTE COMPROBANTE · La reconsulta es GRATUITA dentro de los 15 días</div>
     <div class="foot">${cajeroNombre ? `Atendido por: ${cajeroNombre} · ` : ''}¡Gracias por su visita! — Válido como constancia de pago</div>
-    <div class="cut">✂ — — — — — cortar aquí — — — — —</div>
+    ${esCirugia ? `
+    <div class="firmas">
+      <div class="firma"><div class="fline"></div>Firma del responsable</div>
+      <div class="firma"><div class="fline"></div>Firma del paciente</div>
+    </div>` : ''}
+    <div class="cut"></div>
   </div>
   <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}</script>
 </body></html>`

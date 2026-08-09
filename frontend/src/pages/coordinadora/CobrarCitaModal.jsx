@@ -69,6 +69,7 @@ export default function CobrarCitaModal({ cita, onClose, onCobrado }) {
       doctorNombre:    cita.doctor_nombre,
       fecha:           String(cita.fecha).slice(0, 10),
       hora:            cita.hora,
+      tipo:            cita.tipo,
       servicios,
       subtotal:        hecho ? hecho.abono : montoValido,
       descuento_monto: 0,
