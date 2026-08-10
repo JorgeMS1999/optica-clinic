@@ -253,6 +253,7 @@ export default function Citas() {
         onClose={() => { setModalNueva(false); setCitaEditar(null) }}
         title={citaEditar ? 'Editar Cita' : 'Nueva Cita'}
         size="xl"
+        bodyClassName="px-6 pt-6 pb-0"
       >
         <NuevaCitaForm
           key={citaEditar?.id || 'nueva'}

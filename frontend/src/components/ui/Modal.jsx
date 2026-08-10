@@ -1,6 +1,6 @@
 import { X } from 'lucide-react'
 
-export default function Modal({ open, onClose, title, children, size = 'md' }) {
+export default function Modal({ open, onClose, title, children, size = 'md', bodyClassName = 'p-6' }) {
   if (!open) return null
   const sizes = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' }
   return (
@@ -13,7 +13,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }) {
             <X size={20} />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 p-6">{children}</div>
+        <div className={`overflow-y-auto flex-1 ${bodyClassName}`}>{children}</div>
       </div>
     </div>
   )
