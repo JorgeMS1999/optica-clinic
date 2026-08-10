@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import {
   LayoutDashboard, Calendar, Users, UserCheck, ClipboardList,
   CreditCard, Package, BarChart2, LogOut,
-  Menu, X, ChevronDown, Building2, ShoppingBag, Truck, History,
+  Menu, X, ChevronDown, ChevronLeft, Building2, ShoppingBag, Truck, History,
   TrendingDown, ArrowLeft, Stethoscope
 } from 'lucide-react'
 
@@ -162,15 +162,22 @@ export default function Layout() {
         ${sidebarOpen ? 'w-64' : 'w-16'}
         bg-blue-900 text-white flex flex-col transition-all duration-300 shrink-0
       `}>
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-3 py-4 border-b border-blue-800">
+        {/* Logo + botón contraer */}
+        <div className={`flex items-center px-3 py-4 border-b border-blue-800 ${sidebarOpen ? 'gap-3' : 'justify-center'}`}>
           <div className="w-10 h-10 bg-white rounded-full shrink-0 overflow-hidden flex items-center justify-center">
             <img src={logoSrc} alt="Logo" className="w-full h-full object-cover" />
           </div>
           {sidebarOpen && (
-            <span className="font-bold text-base leading-tight line-clamp-2">
-              {estabNombre || usuario?.clinica_nombre || usuario?.farmacia_nombre || 'Óptica Clínica'}
-            </span>
+            <>
+              <span className="font-bold text-base leading-tight line-clamp-2">
+                {estabNombre || usuario?.clinica_nombre || usuario?.farmacia_nombre || 'Óptica Clínica'}
+              </span>
+              <button onClick={() => setSidebarOpen(false)}
+                className="ml-auto shrink-0 text-blue-300 hover:text-white transition p-1"
+                title="Contraer menú">
+                <ChevronLeft size={18} />
+              </button>
+            </>
           )}
         </div>
 
@@ -181,8 +188,10 @@ export default function Layout() {
               key={item.to}
               to={item.to}
               end={item.end ?? false}
+              title={!sidebarOpen ? item.label : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 mx-2 rounded-xl transition text-sm font-medium
+                `flex items-center py-3 mx-2 rounded-xl transition text-sm font-medium
+                ${sidebarOpen ? 'gap-3 px-4' : 'justify-center px-0'}
                 ${isActive
                   ? 'bg-blue-700 text-white'
                   : 'text-blue-200 hover:bg-blue-800 hover:text-white'}`
@@ -194,12 +203,13 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Toggle */}
+        {/* Toggle expandir/contraer */}
         <button
           onClick={() => setSidebarOpen(s => !s)}
-          className="flex items-center justify-center py-3 border-t border-blue-800 text-blue-300 hover:text-white transition"
+          title={sidebarOpen ? 'Contraer menú' : 'Expandir menú'}
+          className="flex items-center justify-center gap-2 py-3 border-t border-blue-800 text-blue-300 hover:text-white transition text-xs font-medium"
         >
-          {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+          {sidebarOpen ? <><ChevronLeft size={18} /> Contraer</> : <Menu size={18} />}
         </button>
       </aside>
 
