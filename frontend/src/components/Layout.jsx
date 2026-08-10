@@ -162,22 +162,28 @@ export default function Layout() {
         ${sidebarOpen ? 'w-64' : 'w-16'}
         bg-blue-900 text-white flex flex-col transition-all duration-300 shrink-0
       `}>
-        {/* Logo + botón contraer */}
+        {/* Logo + botón para contraer / expandir (arriba) */}
         <div className={`flex items-center px-3 py-4 border-b border-blue-800 ${sidebarOpen ? 'gap-3' : 'justify-center'}`}>
-          <div className="w-10 h-10 bg-white rounded-full shrink-0 overflow-hidden flex items-center justify-center">
-            <img src={logoSrc} alt="Logo" className="w-full h-full object-cover" />
-          </div>
-          {sidebarOpen && (
+          {sidebarOpen ? (
             <>
+              <div className="w-10 h-10 bg-white rounded-full shrink-0 overflow-hidden flex items-center justify-center">
+                <img src={logoSrc} alt="Logo" className="w-full h-full object-cover" />
+              </div>
               <span className="font-bold text-base leading-tight line-clamp-2">
                 {estabNombre || usuario?.clinica_nombre || usuario?.farmacia_nombre || 'Óptica Clínica'}
               </span>
               <button onClick={() => setSidebarOpen(false)}
                 className="ml-auto shrink-0 text-blue-300 hover:text-white transition p-1"
                 title="Contraer menú">
-                <ChevronLeft size={18} />
+                <ChevronLeft size={20} />
               </button>
             </>
+          ) : (
+            <button onClick={() => setSidebarOpen(true)}
+              className="w-10 h-10 bg-white rounded-full shrink-0 overflow-hidden flex items-center justify-center ring-2 ring-transparent hover:ring-blue-400 transition"
+              title="Expandir menú">
+              <img src={logoSrc} alt="Expandir menú" className="w-full h-full object-cover" />
+            </button>
           )}
         </div>
 
@@ -203,14 +209,6 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Toggle expandir/contraer */}
-        <button
-          onClick={() => setSidebarOpen(s => !s)}
-          title={sidebarOpen ? 'Contraer menú' : 'Expandir menú'}
-          className="flex items-center justify-center gap-2 py-3 border-t border-blue-800 text-blue-300 hover:text-white transition text-xs font-medium"
-        >
-          {sidebarOpen ? <><ChevronLeft size={18} /> Contraer</> : <Menu size={18} />}
-        </button>
       </aside>
 
       {/* Main */}
