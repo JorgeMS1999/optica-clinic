@@ -101,7 +101,7 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
     <div class="firma-t"><div class="fline-t"></div>Firma del responsable</div>
     <div class="firma-t"><div class="fline-t"></div>Firma del paciente</div>
   </div>` : ''}
-  <div class="footer">${cajeroNombre ? `Atendido por: ${cajeroNombre}<br/>` : ''}¡Gracias por su visita!<br/>Válido como constancia de pago</div>
+  <div class="footer">¡Gracias por su visita!<br/>Válido como constancia de pago</div>
   <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}</script>
 </body></html>`
   }
@@ -174,7 +174,7 @@ export function imprimirTicketCita(datos = {}, opts = {}) {
     </div>
     ${metodo_pago ? `<div class="met">Pago: <b>${METODO_LABEL[metodo_pago] || metodo_pago}</b>${referencia ? ` · Ref: ${referencia}` : ''}</div>` : ''}
     <div class="aviso">CONSERVE Y TRAIGA ESTE COMPROBANTE · La reconsulta es GRATUITA dentro de los 15 días</div>
-    <div class="foot">${cajeroNombre ? `Atendido por: ${cajeroNombre} · ` : ''}¡Gracias por su visita! — Válido como constancia de pago</div>
+    <div class="foot">¡Gracias por su visita! — Válido como constancia de pago</div>
     ${esCirugia ? `
     <div class="firmas">
       <div class="firma"><div class="fline"></div>Firma del responsable</div>
