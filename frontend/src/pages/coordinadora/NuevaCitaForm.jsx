@@ -8,10 +8,10 @@ import { imprimirTicketCita } from '../../utils/imprimirTicketCita'
 import Modal from '../../components/ui/Modal'
 import FichaCompletaForm from './FichaCompletaForm'
 
-// Horarios cada 10 minutos, de 07:00 a 22:00 (10 de la noche)
+// Horarios cada 5 minutos, de 07:00 a 22:00 (10 de la noche)
 const HORAS = (() => {
   const slots = []
-  for (let min = 7 * 60; min <= 22 * 60; min += 10) {
+  for (let min = 7 * 60; min <= 22 * 60; min += 5) {
     slots.push(`${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`)
   }
   return slots
