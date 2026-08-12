@@ -45,6 +45,7 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
   const [loading, setLoading] = useState(false)
   const [modalNuevoPac, setModalNuevoPac] = useState(false)  // modal registro completo de paciente
   const [proxHC, setProxHC] = useState(null)                 // próximo N° historia para el nuevo
+  const [horasOcupadas, setHorasOcupadas] = useState(new Set())  // horas tomadas por el doctor ese día
 
   const totalServicios = selServicios.reduce((s, l) => s + (parseFloat(l.precio_cobrado) || 0), 0)
 
@@ -56,6 +57,27 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
       .then(r => setClinica(r.data.find(c => c.id === usuario?.clinica_id) || r.data[0] || null))
       .catch(() => {})
   }, [usuario?.clinica_id])
+
+  // Horas ya ocupadas del doctor en la fecha elegida (para no doble-reservar)
+  useEffect(() => {
+    if (!form.doctor_id || !form.fecha) { setHorasOcupadas(new Set()); return }
+    let cancelado = false
+    api.get(`/citas?doctor_id=${form.doctor_id}&fecha=${form.fecha}`)
+      .then(({ data }) => {
+        if (cancelado) return
+        const ocup = new Set()
+        for (const c of data) {
+          if (['cancelada', 'no_asistio', 'anulado'].includes(c.estado)) continue
+          if (cita?.id && c.id === cita.id) continue   // no marcar la propia cita al editar
+          if (c.hora) ocup.add(String(c.hora).slice(0, 5))
+        }
+        setHorasOcupadas(ocup)
+        // Si la hora seleccionada quedó ocupada, mover a la primera libre
+        setForm(f => (ocup.has(f.hora) ? { ...f, hora: HORAS.find(h => !ocup.has(h)) || f.hora } : f))
+      })
+      .catch(() => {})
+    return () => { cancelado = true }
+  }, [form.doctor_id, form.fecha, cita?.id])
 
   // Precarga en modo edición
   useEffect(() => {
@@ -278,8 +300,18 @@ export default function NuevaCitaForm({ fechaDefault, onGuardada, cita = null })
               <select required value={form.hora}
                 onChange={e => setForm(f => ({ ...f, hora: e.target.value }))}
                 className={INPUT}>
-                {HORAS.map(h => <option key={h} value={h}>{h}</option>)}
+                {HORAS.map(h => {
+                  const ocupada = horasOcupadas.has(h) && h !== form.hora
+                  return (
+                    <option key={h} value={h} disabled={ocupada}>
+                      {h}{ocupada ? ' — ocupada' : ''}
+                    </option>
+                  )
+                })}
               </select>
+              {!form.doctor_id && (
+                <p className="text-[11px] text-gray-400 mt-1">Elegí el doctor para ver qué horas están libres.</p>
+              )}
             </div>
           </div>
 
