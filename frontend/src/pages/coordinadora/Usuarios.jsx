@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { UserPlus, ToggleLeft, ToggleRight, ShieldCheck } from 'lucide-react'
+import { UserPlus, ToggleLeft, ToggleRight, ShieldCheck, Pencil } from 'lucide-react'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
@@ -43,8 +43,34 @@ export default function Usuarios() {
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(FORM_VACIO)
   const [guardando, setGuardando] = useState(false)
+  const [editUser, setEditUser] = useState(null)   // usuario en edición
+  const [editForm, setEditForm] = useState({ nombre: '', email: '', password: '' })
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const rolesPermitidos = PUEDE_CREAR[usuario?.rol] || []
+  const puedeEditar = ['superadmin', 'admin_clinica', 'coordinadora', 'admin_farmacia'].includes(usuario?.rol)
+  const puedeToggle = ['superadmin', 'admin_clinica', 'admin_farmacia'].includes(usuario?.rol)
+
+  function abrirEditar(u) {
+    setEditUser(u)
+    setEditForm({ nombre: u.nombre || '', email: u.email || '', password: '' })
+  }
+
+  async function guardarEditar(e) {
+    e.preventDefault()
+    if (!editForm.nombre.trim()) return toast.error('El nombre es requerido')
+    setSavingEdit(true)
+    try {
+      const payload = { nombre: editForm.nombre, email: editForm.email }
+      if (editForm.password.trim()) payload.password = editForm.password
+      await api.put(`/usuarios/${editUser.id}`, payload)
+      toast.success('Usuario actualizado')
+      setEditUser(null)
+      cargar()
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error al actualizar')
+    } finally { setSavingEdit(false) }
+  }
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -134,7 +160,7 @@ export default function Usuarios() {
                 <th className="px-6 py-3 text-left">Establecimiento</th>
                 <th className="px-6 py-3 text-left">Creado</th>
                 <th className="px-6 py-3 text-left">Estado</th>
-                {(usuario?.rol === 'superadmin' || usuario?.rol === 'admin_clinica' || usuario?.rol === 'admin_farmacia') && (
+                {(puedeEditar || puedeToggle) && (
                   <th className="px-6 py-3 text-left">Acción</th>
                 )}
               </tr>
@@ -169,16 +195,29 @@ export default function Usuarios() {
                       {u.activo ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
-                  {(usuario?.rol === 'superadmin' || usuario?.rol === 'admin_clinica' || usuario?.rol === 'admin_farmacia') && (
+                  {(puedeEditar || puedeToggle) && (
                     <td className="px-6 py-4">
-                      {u.rol !== 'superadmin' && (
-                        <button
-                          onClick={() => toggleActivo(u.id, u.activo)}
-                          className={`flex items-center gap-1 text-xs font-medium transition ${u.activo ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'}`}
-                        >
-                          {u.activo ? <><ToggleRight size={18}/> Desactivar</> : <><ToggleLeft size={18}/> Activar</>}
-                        </button>
-                      )}
+                      <div className="flex items-center gap-4">
+                        {puedeEditar && u.rol === 'doctor' && (
+                          <span className="text-xs text-gray-400">Editar en Doctores</span>
+                        )}
+                        {puedeEditar && u.rol !== 'doctor' && (
+                          <button
+                            onClick={() => abrirEditar(u)}
+                            className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition"
+                          >
+                            <Pencil size={15}/> Editar
+                          </button>
+                        )}
+                        {puedeToggle && u.rol !== 'superadmin' && (
+                          <button
+                            onClick={() => toggleActivo(u.id, u.activo)}
+                            className={`flex items-center gap-1 text-xs font-medium transition ${u.activo ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'}`}
+                          >
+                            {u.activo ? <><ToggleRight size={18}/> Desactivar</> : <><ToggleLeft size={18}/> Activar</>}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -277,6 +316,41 @@ export default function Usuarios() {
             <button type="submit" disabled={guardando}
               className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white py-2.5 rounded-xl text-sm font-medium transition">
               {guardando ? 'Creando...' : 'Crear Usuario'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal editar usuario */}
+      <Modal open={!!editUser} onClose={() => setEditUser(null)} title="Editar usuario" size="sm">
+        <form onSubmit={guardarEditar} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+            <input required value={editForm.nombre}
+              onChange={e => setEditForm(f => ({ ...f, nombre: e.target.value }))}
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input type="email" value={editForm.email}
+              onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nueva contraseña <span className="text-gray-400 font-normal">(opcional)</span></label>
+            <input type="text" value={editForm.password}
+              onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))}
+              placeholder="Dejar en blanco para no cambiarla"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={() => setEditUser(null)}
+              className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+            <button type="submit" disabled={savingEdit}
+              className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white py-2.5 rounded-xl text-sm font-medium transition">
+              {savingEdit ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>
         </form>

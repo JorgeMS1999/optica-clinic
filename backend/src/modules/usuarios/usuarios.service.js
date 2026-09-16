@@ -77,4 +77,30 @@ async function toggleActivo(id, activo) {
   );
 }
 
-module.exports = { listar, crear, toggleActivo };
+// Editar nombre y/o email de un usuario. Opcionalmente resetea la contraseña.
+async function editar(id, datos) {
+  if (!datos.nombre || !datos.nombre.trim()) throw new Error('El nombre es requerido');
+  const sets = ['nombre = $1'];
+  const params = [datos.nombre.trim()];
+  let i = 2;
+  if (datos.email && datos.email.trim()) { sets.push(`email = $${i++}`); params.push(datos.email.trim()); }
+  if (datos.password && datos.password.trim()) {
+    const hash = await bcrypt.hash(datos.password, 10);
+    sets.push(`password_hash = $${i++}`); params.push(hash);
+  }
+  params.push(id);
+  try {
+    const res = await globalDB.query(
+      `UPDATE usuarios SET ${sets.join(', ')} WHERE id = $${i}
+       RETURNING id, nombre, email, activo`,
+      params
+    );
+    if (!res.rows[0]) throw new Error('Usuario no encontrado');
+    return res.rows[0];
+  } catch (e) {
+    if (e.code === '23505') throw new Error('El email ya está registrado en otra cuenta');
+    throw e;
+  }
+}
+
+module.exports = { listar, crear, toggleActivo, editar };

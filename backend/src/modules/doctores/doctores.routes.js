@@ -179,6 +179,46 @@ router.put('/:id/horarios', requireRole('superadmin', 'admin_clinica', 'coordina
   }
 })
 
+// Editar datos del doctor (nombre, especialidad, teléfono, email).
+// Sincroniza también el usuario global (nombre/email) para que el login y
+// lo que se muestra en toda la app queden consistentes.
+router.put('/:id', requireRole('superadmin', 'admin_clinica', 'coordinadora'), async (req, res) => {
+  try {
+    const { nombre, especialidad, telefono, email } = req.body
+    if (!nombre?.trim()) return res.status(400).json({ error: 'El nombre es requerido' })
+
+    const d = db(req)
+    const cur = await d.query(`SELECT usuario_id FROM doctores WHERE id=$1`, [req.params.id])
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Doctor no encontrado' })
+    const usuario_id = cur.rows[0].usuario_id
+
+    // Actualizar usuario global vinculado (nombre y, si viene, email)
+    if (usuario_id) {
+      try {
+        if (email?.trim()) {
+          await globalDB.query(
+            `UPDATE usuarios SET nombre=$1, email=$2 WHERE id=$3`,
+            [nombre.trim(), email.trim(), usuario_id]
+          )
+        } else {
+          await globalDB.query(`UPDATE usuarios SET nombre=$1 WHERE id=$2`, [nombre.trim(), usuario_id])
+        }
+      } catch (e) {
+        if (e.code === '23505') return res.status(400).json({ error: 'El email ya está registrado en otra cuenta' })
+        throw e
+      }
+    }
+
+    const r = await d.query(
+      `UPDATE doctores SET nombre=$1, especialidad=$2, telefono=$3, email=$4 WHERE id=$5 RETURNING *`,
+      [nombre.trim(), especialidad || 'Oftalmología', telefono || null, email?.trim() || null, req.params.id]
+    )
+    res.json(r.rows[0])
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
 // Agenda del doctor para una fecha
 router.get('/:id/agenda', async (req, res) => {
   try {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { UserPlus, Clock, Plus, Trash2, Phone, Mail, Stethoscope } from 'lucide-react'
+import { UserPlus, Clock, Plus, Trash2, Phone, Mail, Stethoscope, Pencil } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import Modal from '../../components/ui/Modal'
@@ -61,6 +61,27 @@ function TarjetaDoctor({ doctor, onGuardado }) {
   )
   const [saving, setSaving] = useState(false)
 
+  // Edición de datos del doctor (nombre, especialidad, teléfono, email)
+  const [editDatos, setEditDatos] = useState(false)
+  const [datos, setDatos] = useState({
+    nombre: doctor.nombre || '', especialidad: doctor.especialidad || '',
+    telefono: doctor.telefono || '', email: doctor.email || '',
+  })
+  const [savingDatos, setSavingDatos] = useState(false)
+
+  async function guardarDatos() {
+    if (!datos.nombre.trim()) return toast.error('El nombre es requerido')
+    setSavingDatos(true)
+    try {
+      await api.put(`/doctores/${doctor.id}`, datos)
+      toast.success('Datos del doctor actualizados')
+      setEditDatos(false)
+      onGuardado()
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error al guardar los datos')
+    } finally { setSavingDatos(false) }
+  }
+
   async function guardarHorarios() {
     setSaving(true)
     try {
@@ -77,22 +98,58 @@ function TarjetaDoctor({ doctor, onGuardado }) {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-5">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 bg-cyan-100 rounded-full flex items-center justify-center text-cyan-700 font-bold shrink-0">
-            <Stethoscope size={20} />
+      {editDatos ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-gray-700 mb-1">
+            <Pencil size={14} /> <span className="text-sm font-semibold">Editar datos</span>
           </div>
-          <div>
-            <p className="font-semibold text-gray-800">{doctor.nombre}</p>
-            <p className="text-gray-400 text-xs">{doctor.especialidad}</p>
+          <input value={datos.nombre} onChange={e => setDatos(d => ({ ...d, nombre: e.target.value }))}
+            placeholder="Nombre completo"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input value={datos.especialidad} onChange={e => setDatos(d => ({ ...d, especialidad: e.target.value }))}
+            placeholder="Especialidad"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input value={datos.telefono} onChange={e => setDatos(d => ({ ...d, telefono: e.target.value }))}
+            placeholder="Teléfono"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input type="email" value={datos.email} onChange={e => setDatos(d => ({ ...d, email: e.target.value }))}
+            placeholder="Email (login)"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <div className="flex gap-2 pt-1">
+            <button onClick={guardarDatos} disabled={savingDatos}
+              className="flex-1 bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2 rounded-lg transition">
+              {savingDatos ? 'Guardando...' : 'Guardar'}
+            </button>
+            <button onClick={() => { setEditDatos(false); setDatos({ nombre: doctor.nombre || '', especialidad: doctor.especialidad || '', telefono: doctor.telefono || '', email: doctor.email || '' }) }}
+              className="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition">
+              Cancelar
+            </button>
           </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-cyan-100 rounded-full flex items-center justify-center text-cyan-700 font-bold shrink-0">
+                <Stethoscope size={20} />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800">{doctor.nombre}</p>
+                <p className="text-gray-400 text-xs">{doctor.especialidad}</p>
+              </div>
+            </div>
+            <button onClick={() => setEditDatos(true)} title="Editar datos"
+              className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition shrink-0">
+              <Pencil size={15} />
+            </button>
+          </div>
 
-      <div className="mt-3 space-y-1 text-xs text-gray-500">
-        {doctor.email && <p className="flex items-center gap-1.5"><Mail size={12} /> {doctor.email}</p>}
-        {doctor.telefono && <p className="flex items-center gap-1.5"><Phone size={12} /> {doctor.telefono}</p>}
-      </div>
+          <div className="mt-3 space-y-1 text-xs text-gray-500">
+            {doctor.email && <p className="flex items-center gap-1.5"><Mail size={12} /> {doctor.email}</p>}
+            {doctor.telefono && <p className="flex items-center gap-1.5"><Phone size={12} /> {doctor.telefono}</p>}
+          </div>
+        </>
+      )}
 
       <div className="mt-4 border-t border-gray-100 pt-3">
         <div className="flex items-center justify-between mb-2">

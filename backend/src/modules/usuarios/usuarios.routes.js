@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const { authMiddleware, requireRole } = require('../../middleware/auth');
-const { listar, crear, toggleActivo } = require('./usuarios.service');
+const { listar, crear, toggleActivo, editar } = require('./usuarios.service');
 
 const router = Router();
 
@@ -33,6 +33,18 @@ router.patch('/:id/activo',
     try {
       await toggleActivo(req.params.id, req.body.activo);
       res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
+router.put('/:id',
+  requireRole('superadmin', 'admin_clinica', 'coordinadora', 'admin_farmacia'),
+  async (req, res) => {
+    try {
+      const u = await editar(req.params.id, req.body);
+      res.json(u);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
