@@ -43,7 +43,7 @@ router.put('/:id',
   requireRole('superadmin', 'admin_clinica', 'coordinadora', 'admin_farmacia'),
   async (req, res) => {
     try {
-      const u = await editar(req.params.id, req.body);
+      const u = await editar(req.user, req.params.id, req.body);
       res.json(u);
     } catch (err) {
       res.status(400).json({ error: err.message });

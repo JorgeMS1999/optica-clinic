@@ -77,9 +77,20 @@ async function toggleActivo(id, activo) {
   );
 }
 
-// Editar nombre y/o email de un usuario. Opcionalmente resetea la contraseña.
-async function editar(id, datos) {
+const ROLES_CLINICA  = ['admin_clinica', 'coordinadora', 'cajero'];
+const ROLES_FARMACIA = ['admin_farmacia', 'cajero'];
+
+// Editar nombre/email/contraseña y, opcionalmente, el rol de un usuario.
+async function editar(usuarioActual, id, datos) {
   if (!datos.nombre || !datos.nombre.trim()) throw new Error('El nombre es requerido');
+
+  const cur = await globalDB.query(
+    `SELECT u.clinica_id, u.farmacia_id, r.nombre AS rol
+     FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE u.id = $1`, [id]
+  );
+  if (!cur.rows[0]) throw new Error('Usuario no encontrado');
+  const actual = cur.rows[0];
+
   const sets = ['nombre = $1'];
   const params = [datos.nombre.trim()];
   let i = 2;
@@ -88,6 +99,29 @@ async function editar(id, datos) {
     const hash = await bcrypt.hash(datos.password, 10);
     sets.push(`password_hash = $${i++}`); params.push(hash);
   }
+
+  // Cambio de rol (opcional)
+  if (datos.rol && datos.rol !== actual.rol) {
+    if (datos.rol === 'doctor') throw new Error('Los doctores se gestionan desde la pantalla Doctores');
+    if (actual.rol === 'superadmin' || actual.rol === 'doctor')
+      throw new Error('No se puede cambiar el rol de este usuario desde aquí');
+
+    const permitido = usuarioActual.rol === 'superadmin'
+      ? [...new Set([...ROLES_CLINICA, ...ROLES_FARMACIA])]
+      : (PUEDE_CREAR[usuarioActual.rol] || []);
+    if (!permitido.includes(datos.rol)) throw new Error(`No puedes asignar el rol "${datos.rol}"`);
+
+    // El nuevo rol debe corresponder al tipo de establecimiento del usuario
+    if (actual.clinica_id && !ROLES_CLINICA.includes(datos.rol))
+      throw new Error('Ese rol no corresponde a una clínica');
+    if (actual.farmacia_id && !ROLES_FARMACIA.includes(datos.rol))
+      throw new Error('Ese rol no corresponde a una farmacia');
+
+    const rolRes = await globalDB.query(`SELECT id FROM roles WHERE nombre = $1`, [datos.rol]);
+    if (!rolRes.rows[0]) throw new Error('Rol inválido');
+    sets.push(`rol_id = $${i++}`); params.push(rolRes.rows[0].id);
+  }
+
   params.push(id);
   try {
     const res = await globalDB.query(

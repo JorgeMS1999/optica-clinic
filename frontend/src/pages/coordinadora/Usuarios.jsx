@@ -44,8 +44,11 @@ export default function Usuarios() {
   const [form, setForm] = useState(FORM_VACIO)
   const [guardando, setGuardando] = useState(false)
   const [editUser, setEditUser] = useState(null)   // usuario en edición
-  const [editForm, setEditForm] = useState({ nombre: '', email: '', password: '' })
+  const [editForm, setEditForm] = useState({ nombre: '', email: '', password: '', rol: '' })
   const [savingEdit, setSavingEdit] = useState(false)
+
+  const ROLES_CLINICA  = ['admin_clinica', 'coordinadora', 'cajero']
+  const ROLES_FARMACIA = ['admin_farmacia', 'cajero']
 
   const rolesPermitidos = PUEDE_CREAR[usuario?.rol] || []
   const puedeEditar = ['superadmin', 'admin_clinica', 'coordinadora', 'admin_farmacia'].includes(usuario?.rol)
@@ -53,7 +56,17 @@ export default function Usuarios() {
 
   function abrirEditar(u) {
     setEditUser(u)
-    setEditForm({ nombre: u.nombre || '', email: u.email || '', password: '' })
+    setEditForm({ nombre: u.nombre || '', email: u.email || '', password: '', rol: u.rol || '' })
+  }
+
+  // Roles a los que se puede cambiar este usuario (según su establecimiento y permisos del editor)
+  function rolesEditables(u) {
+    if (!u || u.rol === 'superadmin' || u.rol === 'doctor') return []
+    const base = u.clinica ? ROLES_CLINICA : u.farmacia ? ROLES_FARMACIA : []
+    const asignables = usuario?.rol === 'superadmin'
+      ? base
+      : base.filter(r => (PUEDE_CREAR[usuario?.rol] || []).includes(r))
+    return [...new Set([u.rol, ...asignables].filter(Boolean))]
   }
 
   async function guardarEditar(e) {
@@ -63,6 +76,7 @@ export default function Usuarios() {
     try {
       const payload = { nombre: editForm.nombre, email: editForm.email }
       if (editForm.password.trim()) payload.password = editForm.password
+      if (editForm.rol && editForm.rol !== editUser.rol) payload.rol = editForm.rol
       await api.put(`/usuarios/${editUser.id}`, payload)
       toast.success('Usuario actualizado')
       setEditUser(null)
@@ -336,6 +350,18 @@ export default function Usuarios() {
               onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
+          {rolesEditables(editUser).length > 1 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+              <select value={editForm.rol}
+                onChange={e => setEditForm(f => ({ ...f, rol: e.target.value }))}
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                {rolesEditables(editUser).map(r => (
+                  <option key={r} value={r}>{ROL_LABEL[r] || r}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nueva contraseña <span className="text-gray-400 font-normal">(opcional)</span></label>
             <input type="text" value={editForm.password}
