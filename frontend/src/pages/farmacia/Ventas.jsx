@@ -196,7 +196,7 @@ export default function Ventas() {
   }
 
   const subtotal        = carrito.reduce((s, i) => s + i.cantidad * parseFloat(i.precio_unitario || 0), 0)
-  const descuento_monto = subtotal * (parseFloat(descuento) / 100)
+  const descuento_monto = Math.min(Math.max(parseFloat(descuento) || 0, 0), subtotal)   // descuento en Bs.
   const total           = Math.max(0, subtotal - descuento_monto)
   const hayPrecioInvalido = carrito.some(i => !(parseFloat(i.precio_unitario) > 0))
 
@@ -209,7 +209,6 @@ export default function Ventas() {
       const snapshot = {
         items:           carrito.map(i => ({ ...i })),
         subtotal,
-        descuento_pct:   parseFloat(descuento) || 0,
         descuento_monto,
         total,
         metodo_pago:     metodo,
@@ -224,7 +223,7 @@ export default function Ventas() {
           precio_unitario: parseFloat(i.precio_unitario),
           descuento_item:  0,
         })),
-        descuento_pct: parseFloat(descuento) || 0,
+        descuento_monto: descuento_monto,   // descuento en Bs. (no porcentual)
         metodo_pago:   metodo,
         referencia:    referencia || null,
       })
@@ -249,7 +248,6 @@ export default function Ventas() {
         venta,
         items:           snapshot.items,
         subtotal:        snapshot.subtotal,
-        descuento_pct:   snapshot.descuento_pct,
         descuento_monto: snapshot.descuento_monto,
         total:           snapshot.total,
         metodo_pago:     snapshot.metodo_pago,
@@ -288,7 +286,7 @@ export default function Ventas() {
           ))}
           {snapshot.descuento_monto > 0 && (
             <div className="flex justify-between text-sm text-red-500">
-              <span>Descuento ({snapshot.descuento_pct}%)</span>
+              <span>Descuento</span>
               <span>− Bs. {snapshot.descuento_monto.toFixed(2)}</span>
             </div>
           )}
@@ -422,12 +420,13 @@ export default function Ventas() {
         {/* Footer con totales y pago */}
         <div className="border-t border-gray-100 px-5 py-3 space-y-2 shrink-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600 flex-1">Descuento %</span>
+            <span className="text-sm text-gray-600 flex-1">Descuento Bs.</span>
             <input
-              type="number" min="0" max="100" step="0.5"
+              type="number" min="0" step="1"
               value={descuento}
               onChange={e => setDescuento(e.target.value)}
-              className={`w-20 border border-gray-200 rounded-xl px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400 ${NO_SPINNER}`}
+              placeholder="0"
+              className={`w-24 border border-gray-200 rounded-xl px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400 ${NO_SPINNER}`}
             />
           </div>
 
@@ -438,7 +437,7 @@ export default function Ventas() {
             </div>
             {descuento_monto > 0 && (
               <div className="flex justify-between text-green-600">
-                <span>Descuento ({descuento}%)</span>
+                <span>Descuento</span>
                 <span>- Bs. {descuento_monto.toFixed(2)}</span>
               </div>
             )}

@@ -152,7 +152,7 @@ export function imprimirComprobanteVenta({
   <!-- TOTALES -->
   <div class="tot-row"><span>Subtotal</span><span>Bs. ${subtotal.toFixed(2)}</span></div>
   ${descuento_monto > 0
-    ? `<div class="tot-row"><span>Descuento (${descuento_pct}%)</span><span>- Bs. ${descuento_monto.toFixed(2)}</span></div>`
+    ? `<div class="tot-row"><span>Descuento</span><span>- Bs. ${descuento_monto.toFixed(2)}</span></div>`
     : ''}
   <div class="tot-row tot-total"><span>TOTAL</span><span>Bs. ${total.toFixed(2)}</span></div>
 

@@ -138,6 +138,7 @@ router.post('/', requireRole('superadmin', 'admin_farmacia', 'cajero'), async (r
       cliente_nombre, cliente_id,
       items,           // [{ producto_id, cantidad, precio_unitario, descuento_item }]
       descuento_pct = 0,
+      descuento_monto: descuento_neto,   // descuento en Bs. (neto) — si viene, manda sobre el %
       metodo_pago,
       referencia, notas
     } = req.body
@@ -153,10 +154,19 @@ router.post('/', requireRole('superadmin', 'admin_farmacia', 'cajero'), async (r
       }
     }
 
-    // Calcular totales
+    // Calcular totales. El descuento puede venir como monto neto en Bs.
+    // (descuento_monto) o, por compatibilidad, como porcentaje (descuento_pct).
     const subtotal = items.reduce((s, i) =>
       s + (i.precio_unitario * i.cantidad) - (i.descuento_item || 0), 0)
-    const descuento_monto = subtotal * (parseFloat(descuento_pct) / 100)
+
+    let descuento_monto, descuento_pct_final
+    if (descuento_neto !== undefined && descuento_neto !== null && descuento_neto !== '') {
+      descuento_monto     = Math.min(Math.max(parseFloat(descuento_neto) || 0, 0), subtotal)
+      descuento_pct_final = subtotal > 0 ? (descuento_monto / subtotal) * 100 : 0
+    } else {
+      descuento_pct_final = parseFloat(descuento_pct) || 0
+      descuento_monto     = subtotal * (descuento_pct_final / 100)
+    }
     const total = Math.max(0, subtotal - descuento_monto)
 
     // Insertar venta
@@ -166,7 +176,7 @@ router.post('/', requireRole('superadmin', 'admin_farmacia', 'cajero'), async (r
           descuento_pct, descuento_monto, total, metodo_pago, referencia, notas)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [cliente_id || null, cliente_nombre || null, req.user.id,
-       subtotal, descuento_pct, descuento_monto, total,
+       subtotal, descuento_pct_final, descuento_monto, total,
        metodo_pago, referencia || null, notas || null]
     )
     const venta = ventaRes.rows[0]
