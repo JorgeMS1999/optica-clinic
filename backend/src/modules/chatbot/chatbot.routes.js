@@ -6,9 +6,11 @@ const router = Router()
 router.use(authMiddleware)
 
 function db(req) {
-  if (!req.user.clinica_db) throw new Error('Sin clínica asignada')
-  return tenantDB(req.user.clinica_db)
+  const dbName = req.user.clinica_db || req.user.farmacia_db
+  if (!dbName) throw new Error('Sin establecimiento asignado')
+  return tenantDB(dbName)
 }
+function esFarmacia(req) { return !req.user.clinica_db && !!req.user.farmacia_db }
 
 const MINIMAX_URL   = (process.env.MINIMAX_BASE_URL || 'https://api.minimax.io/v1') + '/text/chatcompletion_v2'
 const MINIMAX_MODEL = process.env.MINIMAX_MODEL || 'MiniMax-Text-01'
@@ -39,8 +41,28 @@ Reglas de negocio:
 - Hoy es CURRENT_DATE. Usar CURRENT_DATE / rangos con fecha.
 `
 
-const SYS_SQL = `Eres un asistente que traduce preguntas en español a UNA consulta SQL de solo lectura para PostgreSQL.
-${ESQUEMA}
+const ESQUEMA_FARMACIA = `
+Base de datos PostgreSQL de una farmacia. Tablas y columnas:
+
+productos(id, nombre, categoria_id -> categorias_producto.id, precio_venta numeric, stock_actual int, stock_minimo int, activo bool)
+categorias_producto(id, nombre)
+lotes(id, producto_id -> productos.id, cantidad int, fecha_vencimiento date)
+ventas(id, cliente_id, cliente_nombre, cajero_id, subtotal numeric, descuento_monto numeric, total numeric, metodo_pago 'efectivo'|'tarjeta'|'transferencia'|'qr', estado 'completada'|'anulada', creado_en timestamptz)
+detalle_venta(id, venta_id -> ventas.id, producto_id -> productos.id, cantidad int, precio_unitario numeric, subtotal numeric)
+movimientos_inventario(id, producto_id, tipo, cantidad, creado_en timestamptz)
+proveedores(id, nombre)
+clientes_farmacia(id, nombre)
+
+Reglas de negocio:
+- Ingreso por ventas = SUM(ventas.total) WHERE ventas.estado='completada'. Filtrar por DATE(ventas.creado_en).
+- Producto más vendido = SUM(detalle_venta.cantidad) agrupado por producto (unir ventas para filtrar estado='completada' y fecha).
+- Stock disponible actual está en productos.stock_actual; stock bajo = stock_actual <= stock_minimo.
+- Hoy es CURRENT_DATE.
+`
+
+function sysSQL(esquema) {
+  return `Eres un asistente que traduce preguntas en español a UNA consulta SQL de solo lectura para PostgreSQL.
+${esquema}
 
 INSTRUCCIONES ESTRICTAS:
 - Devuelve ÚNICAMENTE la consulta SQL, sin explicaciones, sin bloques de código, sin punto y coma final.
@@ -48,6 +70,7 @@ INSTRUCCIONES ESTRICTAS:
 - Usa alias legibles en español para las columnas del resultado.
 - Si el resultado puede ser grande, agrega LIMIT 100.
 - Si la pregunta NO se puede responder con esta base (o no requiere datos), responde exactamente: NO_SQL`
+}
 
 const SYS_ANSWER = `Eres el asistente de reportes de la Clínica Luz de tu Visión, para el administrador.
 Te doy la pregunta del usuario y el resultado (JSON) de una consulta a la base de datos.
@@ -101,14 +124,16 @@ async function ejecutarSoloLectura(req, sql) {
 }
 
 // POST /api/chatbot/preguntar  { pregunta }
-router.post('/preguntar', requireRole('superadmin', 'admin_clinica'), async (req, res) => {
+router.post('/preguntar', requireRole('superadmin', 'admin_clinica', 'admin_farmacia'), async (req, res) => {
   try {
     const pregunta = (req.body?.pregunta || '').trim()
     if (!pregunta) return res.status(400).json({ error: 'Escribe una pregunta' })
 
+    const SYS = sysSQL(esFarmacia(req) ? ESQUEMA_FARMACIA : ESQUEMA)
+
     // 1) Generar SQL
     let sql = limpiarSQL(await minimax([
-      { role: 'system', content: SYS_SQL },
+      { role: 'system', content: SYS },
       { role: 'user', content: pregunta },
     ]))
 
@@ -131,7 +156,7 @@ router.post('/preguntar', requireRole('superadmin', 'admin_clinica'), async (req
       filas = await ejecutarSoloLectura(req, sql)
     } catch (e1) {
       const sql2 = limpiarSQL(await minimax([
-        { role: 'system', content: SYS_SQL },
+        { role: 'system', content: SYS },
         { role: 'user', content: pregunta },
         { role: 'assistant', content: sql },
         { role: 'user', content: `Esa consulta falló con el error: "${e1.message}". Corregila y devolvé SOLO el SQL corregido.` },

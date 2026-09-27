@@ -58,6 +58,7 @@ const MENUS = {
     { label: 'Ingresos',        icon: TrendingDown,    to: '/farmacia/ingresos' },
     { label: 'Usuarios',        icon: Users,           to: '/farmacia/usuarios' },
     { label: 'Reportes',        icon: BarChart2,       to: '/farmacia/reportes' },
+    { label: 'Asistente',       icon: Sparkles,        to: '/farmacia/asistente' },
   ],
 }
 

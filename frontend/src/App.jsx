@@ -134,6 +134,7 @@ function AppRoutes() {
         <Route path="/farmacia/proveedores"  element={<Proveedores />} />
         <Route path="/farmacia/ingresos"    element={<HistorialIngresos />} />
         <Route path="/farmacia/reportes"    element={<ReportesFarmacia />} />
+        <Route path="/farmacia/asistente"   element={<Chatbot />} />
         <Route path="/farmacia/usuarios"    element={<Usuarios />} />
       </Route>
 
