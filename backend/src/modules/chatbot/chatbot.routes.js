@@ -44,19 +44,22 @@ Reglas de negocio:
 const ESQUEMA_FARMACIA = `
 Base de datos PostgreSQL de una farmacia. Tablas y columnas:
 
-productos(id, nombre, categoria_id -> categorias_producto.id, precio_venta numeric, stock_actual int, stock_minimo int, activo bool)
+productos(id, codigo, nombre, descripcion, categoria_id -> categorias_producto.id, proveedor_id -> proveedores.id, unidad_medida, precio_compra numeric, precio_venta numeric, stock_minimo int, activo bool, creado_en timestamptz)
+  -- OJO: productos NO tiene columna de stock. El stock disponible se calcula sumando los lotes.
 categorias_producto(id, nombre)
-lotes(id, producto_id -> productos.id, cantidad int, fecha_vencimiento date)
+lotes(id, producto_id -> productos.id, numero_lote, fecha_vencimiento date, fecha_recepcion date, cantidad_unidades int, cantidad_inicial int, costo_unitario numeric, precio_venta_lote numeric)
+  -- cantidad_unidades = stock actual de ese lote
 ventas(id, cliente_id, cliente_nombre, cajero_id, subtotal numeric, descuento_monto numeric, total numeric, metodo_pago 'efectivo'|'tarjeta'|'transferencia'|'qr', estado 'completada'|'anulada', creado_en timestamptz)
-detalle_venta(id, venta_id -> ventas.id, producto_id -> productos.id, cantidad int, precio_unitario numeric, subtotal numeric)
-movimientos_inventario(id, producto_id, tipo, cantidad, creado_en timestamptz)
+detalle_venta(id, venta_id -> ventas.id, producto_id -> productos.id, lote_id, cantidad int, precio_unitario numeric, subtotal numeric)
 proveedores(id, nombre)
 clientes_farmacia(id, nombre)
 
 Reglas de negocio:
+- Stock actual de un producto = COALESCE(SUM(lotes.cantidad_unidades),0) agrupando por producto_id (LEFT JOIN lotes ON lotes.producto_id=productos.id).
+- Stock bajo = ese stock <= productos.stock_minimo.
 - Ingreso por ventas = SUM(ventas.total) WHERE ventas.estado='completada'. Filtrar por DATE(ventas.creado_en).
-- Producto más vendido = SUM(detalle_venta.cantidad) agrupado por producto (unir ventas para filtrar estado='completada' y fecha).
-- Stock disponible actual está en productos.stock_actual; stock bajo = stock_actual <= stock_minimo.
+- Producto más vendido = SUM(detalle_venta.cantidad), uniendo ventas para filtrar estado='completada' y fecha.
+- Vencimientos próximos: lotes.fecha_vencimiento con cantidad_unidades > 0.
 - Hoy es CURRENT_DATE.
 `
 
