@@ -27,6 +27,7 @@ import Farmacias from './pages/admin/Farmacias'
 import ReportesAdmin from './pages/admin/Reportes'
 import Servicios from './pages/coordinadora/Servicios'
 import ReportesClinica from './pages/coordinadora/Reportes'
+import Chatbot from './pages/coordinadora/Chatbot'
 import ReportesFarmacia from './pages/farmacia/Reportes'
 import HistorialIngresos from './pages/farmacia/HistorialIngresos'
 
@@ -53,6 +54,14 @@ function SoloBurgos({ children }) {
   return usuario?.email?.toLowerCase().includes('burgos')
     ? children
     : <Navigate to="/doctor/dashboard" replace />
+}
+
+// El asistente/chatbot es solo para el administrador de la clínica (y superadmin)
+function SoloAdminClinica({ children }) {
+  const { usuario } = useAuth()
+  return ['admin_clinica', 'superadmin'].includes(usuario?.rol)
+    ? children
+    : <Navigate to="/coordinadora/dashboard" replace />
 }
 
 function AppRoutes() {
@@ -87,6 +96,7 @@ function AppRoutes() {
         <Route path="/coordinadora/doctores"  element={<Doctores />} />
         <Route path="/coordinadora/servicios" element={<Servicios />} />
         <Route path="/coordinadora/reportes"  element={<ReportesClinica />} />
+        <Route path="/coordinadora/asistente" element={<SoloAdminClinica><Chatbot /></SoloAdminClinica>} />
       </Route>
 
       {/* Doctor */}

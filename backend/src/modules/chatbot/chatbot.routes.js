@@ -1,0 +1,156 @@
+const { Router } = require('express')
+const { authMiddleware, requireRole } = require('../../middleware/auth')
+const { tenantDB } = require('../../config/db')
+
+const router = Router()
+router.use(authMiddleware)
+
+function db(req) {
+  if (!req.user.clinica_db) throw new Error('Sin clínica asignada')
+  return tenantDB(req.user.clinica_db)
+}
+
+const MINIMAX_URL   = (process.env.MINIMAX_BASE_URL || 'https://api.minimax.io/v1') + '/text/chatcompletion_v2'
+const MINIMAX_MODEL = process.env.MINIMAX_MODEL || 'MiniMax-Text-01'
+
+// Esquema resumido de la BD de la clínica (para que el modelo escriba SQL correcto)
+const ESQUEMA = `
+Base de datos PostgreSQL de una clínica oftalmológica. Tablas y columnas:
+
+pacientes(id, nombre, carnet, nro_historia, fecha_nacimiento date, sexo char 'M'/'F', telefono, telefono_alt, email, direccion, ocupacion, estado_civil, creado_en timestamptz)
+doctores(id, nombre, especialidad, telefono, email, activo bool)
+citas(id, paciente_id -> pacientes.id, doctor_id -> doctores.id, fecha date, hora time, tipo 'consulta'|'procedimiento'|'cirugia', estado 'programada'|'confirmada'|'en_espera'|'en_consulta'|'atendida'|'cancelada'|'no_asistio'|'anulado', motivo, creado_en timestamptz)
+cita_servicios(id, cita_id -> citas.id, servicio_id -> servicios.id, precio_cobrado numeric)  -- servicios agendados en la cita con su precio
+servicios(id, nombre, categoria_id -> categorias_servicio.id, precio numeric)
+categorias_servicio(id, nombre)   -- ej: 'Consulta', 'Procedimiento', 'Cirugía'
+pagos(id, cita_id -> citas.id, paciente_id, cajero_id, subtotal numeric, descuento_monto numeric, total numeric, metodo_pago 'efectivo'|'tarjeta'|'transferencia'|'seguro'|'qr', estado 'pagado'|'anulado'|'pendiente', creado_en timestamptz)
+detalle_pago(id, pago_id -> pagos.id, servicio_id -> servicios.id, cantidad, precio_unitario numeric, subtotal numeric)
+consultas(id, cita_id, doctor_id, paciente_id, fecha timestamptz, diagnostico text)  -- ficha clínica (puede estar casi vacía)
+cie10(codigo, descripcion)
+
+Reglas de negocio:
+- Ingreso cobrado = SUM(pagos.total) WHERE pagos.estado='pagado'. Filtrar por DATE(pagos.creado_en).
+- Las citas se filtran por su columna citas.fecha (tipo date).
+- "procedimientos del día" = citas con tipo='procedimiento' y fecha = CURRENT_DATE.
+- Monto/valor de una cita = SUM(cita_servicios.precio_cobrado) de esa cita.
+- Saldo de una cita = SUM(cita_servicios.precio_cobrado) - SUM(pagos.subtotal de pagos pagados de esa cita).
+- Para "trabajo realizado" excluir estados 'cancelada','no_asistio','anulado'.
+- Un servicio puntual (ej. Ortóptico) se identifica por servicios.nombre ILIKE '%ortoptico%' (ojo con acentos: usar ILIKE '%ort%ptico%').
+- Hoy es CURRENT_DATE. Usar CURRENT_DATE / rangos con fecha.
+`
+
+const SYS_SQL = `Eres un asistente que traduce preguntas en español a UNA consulta SQL de solo lectura para PostgreSQL.
+${ESQUEMA}
+
+INSTRUCCIONES ESTRICTAS:
+- Devuelve ÚNICAMENTE la consulta SQL, sin explicaciones, sin bloques de código, sin punto y coma final.
+- Debe ser UNA sola sentencia SELECT (o WITH ... SELECT). Prohibido INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE/CREATE u otras.
+- Usa alias legibles en español para las columnas del resultado.
+- Si el resultado puede ser grande, agrega LIMIT 100.
+- Si la pregunta NO se puede responder con esta base (o no requiere datos), responde exactamente: NO_SQL`
+
+const SYS_ANSWER = `Eres el asistente de reportes de la Clínica Luz de tu Visión, para el administrador.
+Te doy la pregunta del usuario y el resultado (JSON) de una consulta a la base de datos.
+Responde en español, claro y breve, con los números concretos. Montos en bolivianos (Bs.).
+No inventes datos: usa solo lo que está en el JSON. Si el JSON viene vacío, decí que no se encontraron registros.`
+
+async function minimax(messages) {
+  const key = process.env.MINIMAX_API_KEY
+  if (!key) throw new Error('Falta configurar MINIMAX_API_KEY en el servidor')
+  const resp = await fetch(MINIMAX_URL, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: MINIMAX_MODEL, messages }),
+  })
+  const j = await resp.json()
+  if (j.base_resp && j.base_resp.status_code !== 0) throw new Error('MiniMax: ' + (j.base_resp.status_msg || 'error'))
+  return (j.choices?.[0]?.message?.content || '').trim()
+}
+
+function limpiarSQL(txt) {
+  let s = (txt || '').trim()
+  s = s.replace(/^```[a-z]*\s*/i, '').replace(/```$/i, '').trim()  // quitar fences
+  s = s.replace(/;+\s*$/,'').trim()                                 // quitar ; final
+  return s
+}
+
+function esSelectSeguro(sql) {
+  if (!sql) return false
+  if (sql.includes(';')) return false                        // una sola sentencia
+  if (!/^(select|with)\b/i.test(sql)) return false
+  const prohibidas = /\b(insert|update|delete|drop|alter|truncate|grant|revoke|create|replace|comment|copy|vacuum|analyze|call|do|merge|reindex|cluster|lock|set|reset|into)\b/i
+  return !prohibidas.test(sql)
+}
+
+// Ejecuta un SELECT en modo SOLO LECTURA, con timeout y tope de filas
+async function ejecutarSoloLectura(req, sql) {
+  const client = await db(req).getClient()
+  try {
+    await client.query('BEGIN')
+    await client.query('SET TRANSACTION READ ONLY')
+    await client.query('SET LOCAL statement_timeout = 8000')
+    const r = await client.query(sql)
+    await client.query('ROLLBACK')
+    return r.rows.slice(0, 200)
+  } catch (e) {
+    try { await client.query('ROLLBACK') } catch { /* ignore */ }
+    throw e
+  } finally {
+    client.release()
+  }
+}
+
+// POST /api/chatbot/preguntar  { pregunta }
+router.post('/preguntar', requireRole('superadmin', 'admin_clinica'), async (req, res) => {
+  try {
+    const pregunta = (req.body?.pregunta || '').trim()
+    if (!pregunta) return res.status(400).json({ error: 'Escribe una pregunta' })
+
+    // 1) Generar SQL
+    let sql = limpiarSQL(await minimax([
+      { role: 'system', content: SYS_SQL },
+      { role: 'user', content: pregunta },
+    ]))
+
+    // Pregunta general (no necesita datos)
+    if (/^NO_SQL/i.test(sql)) {
+      const resp = await minimax([
+        { role: 'system', content: 'Eres el asistente de la Clínica Luz de tu Visión. Responde breve, en español. Si piden datos que no tienes, sugiere reformular la pregunta sobre citas, pagos, pacientes, servicios o doctores.' },
+        { role: 'user', content: pregunta },
+      ])
+      return res.json({ respuesta: resp, sql: null })
+    }
+
+    if (!esSelectSeguro(sql)) {
+      return res.json({ respuesta: 'No pude generar una consulta válida y segura para esa pregunta. Probá reformularla.', sql })
+    }
+
+    // 2) Ejecutar (con 1 reintento si falla, dándole el error al modelo)
+    let filas
+    try {
+      filas = await ejecutarSoloLectura(req, sql)
+    } catch (e1) {
+      const sql2 = limpiarSQL(await minimax([
+        { role: 'system', content: SYS_SQL },
+        { role: 'user', content: pregunta },
+        { role: 'assistant', content: sql },
+        { role: 'user', content: `Esa consulta falló con el error: "${e1.message}". Corregila y devolvé SOLO el SQL corregido.` },
+      ]))
+      if (!esSelectSeguro(sql2)) return res.json({ respuesta: 'No pude ejecutar la consulta. Probá reformular la pregunta.', sql: sql2 })
+      sql = sql2
+      filas = await ejecutarSoloLectura(req, sql)
+    }
+
+    // 3) Redactar la respuesta con los datos
+    const respuesta = await minimax([
+      { role: 'system', content: SYS_ANSWER },
+      { role: 'user', content: `Pregunta: ${pregunta}\n\nResultado (JSON):\n${JSON.stringify(filas)}` },
+    ])
+
+    res.json({ respuesta, sql, filas: filas.length })
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+module.exports = router

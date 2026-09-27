@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Calendar, Users, UserCheck, ClipboardList,
   CreditCard, Package, BarChart2, LogOut,
   Menu, X, ChevronDown, ChevronLeft, Building2, ShoppingBag, Truck, History,
-  TrendingDown, ArrowLeft, Stethoscope
+  TrendingDown, ArrowLeft, Stethoscope, Sparkles
 } from 'lucide-react'
 
 // Menú según rol
@@ -27,6 +27,7 @@ const MENUS = {
     { label: 'Usuarios',        icon: Users,           to: '/coordinadora/usuarios' },
     { label: 'Servicios',       icon: ClipboardList,   to: '/coordinadora/servicios' },
     { label: 'Reportes',        icon: BarChart2,       to: '/coordinadora/reportes' },
+    { label: 'Asistente',       icon: Sparkles,        to: '/coordinadora/asistente' },
   ],
   coordinadora: [
     { label: 'Dashboard',       icon: LayoutDashboard, to: '/coordinadora/dashboard', end: true },
