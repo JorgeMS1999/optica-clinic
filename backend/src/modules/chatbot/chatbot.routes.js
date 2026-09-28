@@ -53,7 +53,7 @@ Reglas de negocio (MUY IMPORTANTE seguirlas):
       FROM citas c WHERE c.estado NOT IN ('cancelada','no_asistio','anulado')
     ) t WHERE saldo > 0;
 - Para "trabajo realizado" / atenciones excluir estados 'cancelada','no_asistio','anulado'.
-- Un servicio puntual (ej. Ortóptico) se identifica por servicios.nombre ILIKE '%ort%ptico%' (cuidado con acentos).
+- Un servicio puntual (ej. Ortóptico) se identifica por servicios.nombre (uniendo cita_servicios). Para CONTAR/​sumar un servicio, filtrá SOLO por servicios.nombre y NO agregues filtro de citas.tipo (un mismo servicio puede estar en citas de cualquier tipo).
 - Hoy es CURRENT_DATE.
 `
 
@@ -91,7 +91,8 @@ INSTRUCCIONES ESTRICTAS:
 - Las preguntas pueden venir informales, con errores de tipeo, sin tildes o en jerga (ej. "plata"=dinero/ingresos, "cuánto entró"=ingresos cobrados). Interpretá la intención.
 - Usá SOLO funciones válidas de PostgreSQL. Para truncar fechas es **date_trunc** (NUNCA 'fecha_trunc'). Fechas relativas con CURRENT_DATE, date_trunc e INTERVAL.
 - Preferí fechas relativas (date_trunc('month', CURRENT_DATE)) antes que fechas literales. Si nombran un mes sin año, usá el AÑO ACTUAL indicado en "FECHA DE HOY".
-- Para filtrar por un médico mencionado por nombre o apellido (ej. "burgos", "dr. núñez"): JOIN doctores d ON d.id = c.doctor_id AND d.nombre ILIKE '%apellido%'.
+- Para filtrar por un médico mencionado por nombre o apellido (ej. "burgos", "nunez"): JOIN doctores d ON d.id = c.doctor_id, y comparar SIN acentos: unaccent(d.nombre) ILIKE unaccent('%apellido%').
+- Para comparar nombres/textos (pacientes, servicios, doctores) ignorá acentos y mayúsculas con unaccent(columna) ILIKE unaccent('%texto%').
 - NO multipliques filas: para sumar montos de tablas relacionadas (ej. cita_servicios y pagos de una cita) usá **subconsultas correlacionadas por id**, nunca JOINs planos de ambas a la vez.
 - Si la pregunta NO se puede responder con esta base (o no requiere datos), responde exactamente: NO_SQL`
 }
@@ -101,13 +102,15 @@ Te doy la pregunta del usuario y el resultado (JSON) de una consulta a la base d
 Responde en español, claro y breve, con los números concretos. Montos en bolivianos (Bs.).
 No inventes datos: usa solo lo que está en el JSON. Si el JSON viene vacío, decí que no se encontraron registros.`
 
-async function minimax(messages) {
+async function minimax(messages, temperature) {
   const key = process.env.MINIMAX_API_KEY
   if (!key) throw new Error('Falta configurar MINIMAX_API_KEY en el servidor')
+  const body = { model: MINIMAX_MODEL, messages }
+  if (temperature != null) body.temperature = temperature
   const resp = await fetch(MINIMAX_URL, {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: MINIMAX_MODEL, messages }),
+    body: JSON.stringify(body),
   })
   const j = await resp.json()
   if (j.base_resp && j.base_resp.status_code !== 0) throw new Error('MiniMax: ' + (j.base_resp.status_msg || 'error'))
@@ -158,11 +161,11 @@ router.post('/preguntar', requireRole('superadmin', 'admin_clinica', 'admin_farm
     const SYS = `FECHA DE HOY: ${hoy} (año actual: ${anio}). Usá este año cuando nombren un mes sin año.\n\n`
       + sysSQL(esFarmacia(req) ? ESQUEMA_FARMACIA : ESQUEMA)
 
-    // 1) Generar SQL
+    // 1) Generar SQL (temperatura baja = más consistente/correcto)
     let sql = limpiarSQL(await minimax([
       { role: 'system', content: SYS },
       { role: 'user', content: pregunta },
-    ]))
+    ], 0.1))
 
     // Pregunta general (no necesita datos)
     if (/^NO_SQL/i.test(sql)) {
@@ -187,7 +190,7 @@ router.post('/preguntar', requireRole('superadmin', 'admin_clinica', 'admin_farm
         { role: 'user', content: pregunta },
         { role: 'assistant', content: sql },
         { role: 'user', content: `Esa consulta falló con el error: "${e1.message}". Corregila y devolvé SOLO el SQL corregido.` },
-      ]))
+      ], 0.1))
       if (!esSelectSeguro(sql2)) return res.json({ respuesta: 'No pude ejecutar la consulta. Probá reformular la pregunta.', sql: sql2 })
       sql = sql2
       filas = await ejecutarSoloLectura(req, sql)
