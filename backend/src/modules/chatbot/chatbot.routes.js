@@ -46,6 +46,12 @@ Reglas de negocio (MUY IMPORTANTE seguirlas):
 - "procedimientos del día" = citas con tipo='procedimiento' y fecha = CURRENT_DATE.
 - Monto/valor de una cita = SUM(cita_servicios.precio_cobrado) de esa cita.
 - Saldo de una cita = SUM(cita_servicios.precio_cobrado) - SUM(pagos.subtotal de pagos pagados de esa cita).
+- Total "por cobrar" (usar subconsultas por cita, NO join plano):
+    SELECT COALESCE(SUM(saldo),0) AS por_cobrar FROM (
+      SELECT COALESCE((SELECT SUM(precio_cobrado) FROM cita_servicios WHERE cita_id=c.id),0)
+           - COALESCE((SELECT SUM(subtotal) FROM pagos WHERE cita_id=c.id AND estado='pagado'),0) AS saldo
+      FROM citas c WHERE c.estado NOT IN ('cancelada','no_asistio','anulado')
+    ) t WHERE saldo > 0;
 - Para "trabajo realizado" / atenciones excluir estados 'cancelada','no_asistio','anulado'.
 - Un servicio puntual (ej. Ortóptico) se identifica por servicios.nombre ILIKE '%ort%ptico%' (cuidado con acentos).
 - Hoy es CURRENT_DATE.
@@ -82,6 +88,11 @@ INSTRUCCIONES ESTRICTAS:
 - Debe ser UNA sola sentencia SELECT (o WITH ... SELECT). Prohibido INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE/CREATE u otras.
 - Usa alias legibles en español para las columnas del resultado.
 - Si el resultado puede ser grande, agrega LIMIT 100.
+- Las preguntas pueden venir informales, con errores de tipeo, sin tildes o en jerga (ej. "plata"=dinero/ingresos, "cuánto entró"=ingresos cobrados). Interpretá la intención.
+- Usá SOLO funciones válidas de PostgreSQL. Para truncar fechas es **date_trunc** (NUNCA 'fecha_trunc'). Fechas relativas con CURRENT_DATE, date_trunc e INTERVAL.
+- Preferí fechas relativas (date_trunc('month', CURRENT_DATE)) antes que fechas literales. Si nombran un mes sin año, usá el AÑO ACTUAL indicado en "FECHA DE HOY".
+- Para filtrar por un médico mencionado por nombre o apellido (ej. "burgos", "dr. núñez"): JOIN doctores d ON d.id = c.doctor_id AND d.nombre ILIKE '%apellido%'.
+- NO multipliques filas: para sumar montos de tablas relacionadas (ej. cita_servicios y pagos de una cita) usá **subconsultas correlacionadas por id**, nunca JOINs planos de ambas a la vez.
 - Si la pregunta NO se puede responder con esta base (o no requiere datos), responde exactamente: NO_SQL`
 }
 
@@ -142,7 +153,10 @@ router.post('/preguntar', requireRole('superadmin', 'admin_clinica', 'admin_farm
     const pregunta = (req.body?.pregunta || '').trim()
     if (!pregunta) return res.status(400).json({ error: 'Escribe una pregunta' })
 
-    const SYS = sysSQL(esFarmacia(req) ? ESQUEMA_FARMACIA : ESQUEMA)
+    const hoy = new Date().toLocaleDateString('en-CA')  // YYYY-MM-DD (zona del servidor = CURRENT_DATE)
+    const anio = hoy.slice(0, 4)
+    const SYS = `FECHA DE HOY: ${hoy} (año actual: ${anio}). Usá este año cuando nombren un mes sin año.\n\n`
+      + sysSQL(esFarmacia(req) ? ESQUEMA_FARMACIA : ESQUEMA)
 
     // 1) Generar SQL
     let sql = limpiarSQL(await minimax([
