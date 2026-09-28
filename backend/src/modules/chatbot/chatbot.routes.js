@@ -53,7 +53,17 @@ Reglas de negocio (MUY IMPORTANTE seguirlas):
       FROM citas c WHERE c.estado NOT IN ('cancelada','no_asistio','anulado')
     ) t WHERE saldo > 0;
 - Para "trabajo realizado" / atenciones excluir estados 'cancelada','no_asistio','anulado'.
-- Un servicio puntual (ej. Ortóptico) se identifica por servicios.nombre (uniendo cita_servicios). Para CONTAR/​sumar un servicio, filtrá SOLO por servicios.nombre y NO agregues filtro de citas.tipo (un mismo servicio puede estar en citas de cualquier tipo).
+- "pacientes nuevos" / "altas de pacientes" = pacientes registrados según pacientes.creado_en (timestamptz). NUNCA usar fecha_nacimiento (esa es la fecha de nacimiento).
+- Un servicio puntual (ej. Ortóptico) se identifica por servicios.nombre. Uní cita_servicios.servicio_id = servicios.id. OJO: servicios.categoria_id apunta a categorias_servicio (la categoría), NO lo confundas con el servicio. Para CONTAR un servicio filtrá SOLO por servicios.nombre y NO agregues filtro de citas.tipo.
+    Ej. "cuántos ortópticos hizo la Dra. Núñez":
+      SELECT COUNT(*) AS cantidad
+      FROM cita_servicios cs
+      JOIN servicios s ON s.id = cs.servicio_id
+      JOIN citas c ON c.id = cs.cita_id
+      JOIN doctores d ON d.id = c.doctor_id
+      WHERE s.nombre ILIKE '%ort%ptico%'
+        AND unaccent(d.nombre) ILIKE unaccent('%nunez%')
+        AND c.estado NOT IN ('cancelada','no_asistio','anulado');
 - Hoy es CURRENT_DATE.
 `
 
