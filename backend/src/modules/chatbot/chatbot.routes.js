@@ -27,18 +27,28 @@ servicios(id, nombre, categoria_id -> categorias_servicio.id, precio numeric)
 categorias_servicio(id, nombre)   -- ej: 'Consulta', 'Procedimiento', 'Cirugía'
 pagos(id, cita_id -> citas.id, paciente_id, cajero_id, subtotal numeric, descuento_monto numeric, total numeric, metodo_pago 'efectivo'|'tarjeta'|'transferencia'|'seguro'|'qr', estado 'pagado'|'anulado'|'pendiente', creado_en timestamptz)
 detalle_pago(id, pago_id -> pagos.id, servicio_id -> servicios.id, cantidad, precio_unitario numeric, subtotal numeric)
-consultas(id, cita_id, doctor_id, paciente_id, fecha timestamptz, diagnostico text)  -- ficha clínica (puede estar casi vacía)
+consultas(id, cita_id, doctor_id, paciente_id, fecha timestamptz, diagnostico text)  -- ficha clínica del médico; CASI SIEMPRE VACÍA. Usar SOLO para diagnósticos/CIE. NUNCA para contar consultas/atenciones.
 cie10(codigo, descripcion)
 
-Reglas de negocio:
-- Ingreso cobrado = SUM(pagos.total) WHERE pagos.estado='pagado'. Filtrar por DATE(pagos.creado_en).
-- Las citas se filtran por su columna citas.fecha (tipo date).
+Reglas de negocio (MUY IMPORTANTE seguirlas):
+- "consultas", "procedimientos" y "cirugías" (cantidades/reportes) = citas.tipo con valor 'consulta' / 'procedimiento' / 'cirugia'. SIEMPRE consultá la tabla **citas**, NO la tabla "consultas".
+- Una cita está COBRADA si EXISTS un pago de esa cita con estado='pagado'; está NO COBRADA (o pendiente) si NO existe ese pago. Usar EXISTS/NOT EXISTS sobre pagos por cita_id.
+  Ej. "consultas cobradas vs no cobradas de esta semana":
+    SELECT
+      COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM pagos p WHERE p.cita_id=c.id AND p.estado='pagado'))     AS cobradas,
+      COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM pagos p WHERE p.cita_id=c.id AND p.estado='pagado')) AS no_cobradas
+    FROM citas c
+    WHERE c.tipo='consulta' AND c.estado NOT IN ('cancelada','no_asistio','anulado')
+      AND c.fecha >= date_trunc('week', CURRENT_DATE)::date AND c.fecha <= CURRENT_DATE;
+- "esta semana" = citas.fecha entre date_trunc('week', CURRENT_DATE)::date y CURRENT_DATE. "este mes" = date_trunc('month', CURRENT_DATE).
+- Ingreso cobrado (dinero) = SUM(pagos.total) WHERE pagos.estado='pagado'. Filtrar por DATE(pagos.creado_en).
+- Las citas se filtran por su columna citas.fecha (date).
 - "procedimientos del día" = citas con tipo='procedimiento' y fecha = CURRENT_DATE.
 - Monto/valor de una cita = SUM(cita_servicios.precio_cobrado) de esa cita.
 - Saldo de una cita = SUM(cita_servicios.precio_cobrado) - SUM(pagos.subtotal de pagos pagados de esa cita).
-- Para "trabajo realizado" excluir estados 'cancelada','no_asistio','anulado'.
-- Un servicio puntual (ej. Ortóptico) se identifica por servicios.nombre ILIKE '%ortoptico%' (ojo con acentos: usar ILIKE '%ort%ptico%').
-- Hoy es CURRENT_DATE. Usar CURRENT_DATE / rangos con fecha.
+- Para "trabajo realizado" / atenciones excluir estados 'cancelada','no_asistio','anulado'.
+- Un servicio puntual (ej. Ortóptico) se identifica por servicios.nombre ILIKE '%ort%ptico%' (cuidado con acentos).
+- Hoy es CURRENT_DATE.
 `
 
 const ESQUEMA_FARMACIA = `
